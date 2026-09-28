@@ -1,0 +1,5 @@
+# Heavy optional dependencies for personal voice training / XTTS.
+# Install only when you really want to train or run a local personal voice model.
+TTS>=0.22.0
+torch
+torchaudio

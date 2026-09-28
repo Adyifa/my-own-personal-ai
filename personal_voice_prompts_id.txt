@@ -1,0 +1,22 @@
+# Baca dengan suara natural. Jangan dibuat-buat terlalu dramatis.
+# Semakin bersih rekamannya, semakin bagus dataset kamu.
+Halo Mika, hari ini aku ingin mencoba suara personal di laptopku.
+Aku sedang membuka aplikasi, mencari file, dan mendengarkan musik santai.
+Cuaca pagi ini terasa cerah, tapi aku tetap ingin bekerja pelan-pelan.
+Tolong buka YouTube, cari tutorial Python, lalu putar lagu yang santai.
+Aku suka suara yang jelas, lembut, dan tidak terlalu cepat.
+Kalau aku bilang matikan laptop, Mika harus bertanya konfirmasi dulu.
+Hari ini aku belajar membuat voice assistant bahasa Indonesia.
+Komputer ini bisa membuka website, game, folder, dokumen, dan aplikasi.
+Aku ingin Mika menjawab dengan pendek, ramah, dan terasa natural.
+Satu dua tiga empat lima enam tujuh delapan sembilan sepuluh.
+Nama file skripsi revisi ada di folder dokumen dan folder unduhan.
+Counter Strike, Valorant, Dota, dan osu adalah contoh nama game.
+Google, Gmail, ChatGPT, YouTube, dan Spotify adalah contoh website.
+Aku sedang mencoba rekaman suara untuk model text to speech pribadi.
+Kalimat ini berisi banyak bunyi bahasa Indonesia yang berbeda-beda.
+Mika, tolong cari video tentang teknologi kecerdasan buatan.
+Aku tidak ingin suaranya terlalu cempreng atau terlalu pelan.
+Kalau perintahnya belum jelas, Mika boleh bertanya ulang dengan sopan.
+Sekarang aku membaca prompt ini dengan tempo normal dan artikulasi jelas.
+Terima kasih, Mika. Kamu boleh berhenti mendengarkan sekarang.

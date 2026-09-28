@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated application builds
+build/
+dist/
+
+# Local IDE and notebook state
+.idea/
+.vscode/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Personal voice data and generated model artifacts
+voice_models/
+voice_profiles/
+*.wav
+*.mp3
+*.pth
+*.pt
+*.ckpt
+*.zip
+
+# Operating-system files
+Thumbs.db
+.DS_Store

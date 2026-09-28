@@ -1,0 +1,172 @@
+{
+  "assistant_name": "Mika",
+  "wake": {
+    "enabled": true,
+    "phrases": [
+      "halo mika",
+      "hai mika",
+      "hey mika",
+      "halo mica",
+      "halo nika",
+      "halo mikha",
+      "halo zeta",
+      "halo zetta",
+      "halo seta",
+      "halo jeta"
+    ],
+    "next_command_seconds": 8,
+    "match_anywhere": true
+  },
+  "voice": {
+    "enabled": true,
+    "provider": "edge",
+    "edge_voice": "id-ID-GadisNeural",
+    "edge_rate": "+12%",
+    "edge_volume": "+0%",
+    "edge_pitch": "+10Hz",
+    "coqui_model": "tts_models/multilingual/multi-dataset/xtts_v2",
+    "coqui_model_path": "",
+    "coqui_config_path": "",
+    "coqui_speaker_wav": "",
+    "coqui_language": "id",
+    "coqui_gpu": false,
+    "rate": 185,
+    "volume": 1.0,
+    "name_contains": ""
+  },
+  "personality": {
+    "preset": "cute",
+    "confirm_prefix": "Siap",
+    "not_found": "Mika belum nemu",
+    "listening_reply": "Iya, Mika denger.",
+    "empty_command": "Mika belum nangkep perintahnya.",
+    "stop_reply": "Oke, Mika diem dulu ya.",
+    "ask_target": "Mau Mika bukain apa?",
+    "file_not_found": "Mika belum nemu file atau folder itu.",
+    "confirm_question": "Yakin? Kalau iya bilang iya, kalau enggak bilang batal.",
+    "confirm_expired": "Konfirmasinya kelewat. Mika batalin dulu, ya.",
+    "confirm_cancelled": "Oke, Mika batalin.",
+    "confirm_waiting": "Mika masih nunggu iya atau batal.",
+    "open_reply": [
+      "Oke, Mika bukain {target} ya.",
+      "Siap, {target} aku buka.",
+      "Bentar, Mika buka {target}."
+    ],
+    "open_website_reply": [
+      "Oke, Mika bukain website {target} ya.",
+      "Siap, aku buka website {target}.",
+      "Bentar, Mika arahin ke {target}."
+    ],
+    "search_reply": [
+      "Sebentar, Mika cari {query} di {provider}.",
+      "Oke, Mika cariin {query} di {provider}.",
+      "Siap, aku telusuri {query} di {provider}."
+    ],
+    "youtube_first_reply": [
+      "Mika bukain hasil YouTube paling cocok untuk {query}.",
+      "Oke, aku buka video yang paling cocok untuk {query}."
+    ],
+    "music_reply": [
+      "Sebentar, Mika cariin {query} di Spotify.",
+      "Oke, Mika buka pencarian {query} di Spotify.",
+      "Siap, aku cariin lagunya di Spotify."
+    ],
+    "startup_reply": "Halo, aku {name}. Panggil aku dengan Halo Mika, lalu sebutin yang kamu mau.",
+    "text_startup_reply": "Halo, aku {name}. Mode ketik aktif. Ketik bantuan kalau mau contoh perintah."
+  },
+  "conversation": {
+    "enabled": true,
+    "continue_seconds": 18
+  },
+  "safety": {
+    "confirmation_seconds": 12,
+    "yes_words": [
+      "iya",
+      "ya",
+      "yes",
+      "yup",
+      "boleh",
+      "lanjut",
+      "gas",
+      "oke"
+    ],
+    "no_words": [
+      "tidak",
+      "nggak",
+      "ga",
+      "gak",
+      "no",
+      "batal",
+      "jangan"
+    ]
+  },
+  "listen": {
+    "language": "id-ID",
+    "device_index": 1,
+    "timeout_seconds": 6,
+    "phrase_time_limit_seconds": 8,
+    "wake_timeout_seconds": 2,
+    "wake_phrase_time_limit_seconds": 4,
+    "command_timeout_seconds": 6,
+    "command_phrase_time_limit_seconds": 8,
+    "ambient_adjust_seconds": 0.15,
+    "pause_threshold": 0.45,
+    "non_speaking_duration": 0.2,
+    "dynamic_energy_threshold": true,
+    "energy_threshold": null
+  },
+  "websites": {
+    "youtube": "https://www.youtube.com",
+    "google": "https://www.google.com",
+    "gmail": "https://mail.google.com",
+    "chatgpt": "https://chatgpt.com"
+  },
+  "apps": {
+    "notepad": "notepad.exe",
+    "kalkulator": "calc.exe",
+    "paint": "mspaint.exe"
+  },
+  "auto_discovery": {
+    "enabled": true,
+    "scan_start_menu": true,
+    "scan_desktop": true,
+    "scan_steam": true
+  },
+  "games": {
+    "counter strike": "steam://rungameid/730",
+    "counter-strike": "steam://rungameid/730",
+    "cs": "steam://rungameid/730",
+    "cs2": "steam://rungameid/730",
+    "cs 2": "steam://rungameid/730",
+    "si es tu": "steam://rungameid/730",
+    "si es 2": "steam://rungameid/730",
+    "counter strike 2": "steam://rungameid/730"
+  },
+  "music": {
+    "provider": "spotify",
+    "open_mode": "web",
+    "songs": {
+      "malu malu": "Malu Malu Dia Indahkus"
+    }
+  },
+  "search": {
+    "default_provider": "google",
+    "providers": {
+      "google": "https://www.google.com/search?q={query}",
+      "youtube": "https://www.youtube.com/results?search_query={query}",
+      "youtube_first": "https://www.google.com/search?btnI=1&q=site%3Ayoutube.com%2Fwatch+{query}"
+    }
+  },
+  "files": {
+    "contoh dokumen": "C:/Users/YSLRS/Documents",
+    "downloads": "C:/Users/YSLRS/Downloads"
+  },
+  "search_folders": [
+    "C:/Users/YSLRS/Desktop",
+    "C:/Users/YSLRS/Documents",
+    "C:/Users/YSLRS/Downloads"
+  ],
+  "file_search": {
+    "max_seconds": 5
+  }
+}
