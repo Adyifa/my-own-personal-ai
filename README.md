@@ -1,435 +1,305 @@
-# AI Voice Assistant Bahasa Indonesia
+# Mika: Personal AI Voice Assistant for Windows
 
-Assistant Windows sederhana untuk membuka website, aplikasi, folder, atau file dengan perintah bahasa Indonesia.
+**English:** An Indonesian-speaking AI voice assistant that lives in the Windows tray. It holds natural conversations, searches the web and reads the answer aloud with its source, and controls the laptop by voice.
 
-## Cara menjalankan
+**Bahasa Indonesia:** Asisten suara AI berbahasa Indonesia yang berjalan di system tray Windows. Mika bisa diajak ngobrol natural, mencari informasi di internet lalu membacakan jawabannya beserta sumbernya, dan mengendalikan laptop lewat suara.
 
-1. Install Python 3.10 atau lebih baru.
-2. Buka terminal di folder ini.
-3. Install dependency:
+| Read in English | Baca dalam Bahasa Indonesia |
+|---|---|
+| [Start here](#english) | [Mulai dari sini](#bahasa-indonesia) |
+
+---
+
+## English
+
+### Reading guide
+
+| Time you have | Read |
+|---|---|
+| 1 minute | [In short](#in-short) and [Example conversation](#example-conversation) |
+| 3 minutes | + [Skills demonstrated](#skills-demonstrated) |
+| 10 minutes (technical reviewers) | + [Architecture](#architecture), [Key engineering decisions](#key-engineering-decisions), [Code tour](#code-tour) |
+
+Unfamiliar terms are explained in the [glossary](#glossary).
+
+### In short
+
+- **What:** a personal voice assistant like Alexa, but it runs on a Windows laptop and speaks casual Indonesian.
+- **What makes it interesting:** it combines a local AI model that runs offline on a 4 GB laptop GPU, tool calling, live web search with cited sources, and streaming speech, with safety rules enforced in code.
+- **My role:** sole developer. I rebuilt an earlier rule-based version (one 1,650-line file) into a modular, tested AI agent while keeping every old feature working.
+- **Quality:** 144 automated tests that run in about 3 seconds, with no microphone, speakers, AI model, or internet needed.
+
+### Example conversation
+
+Mika's answers below are illustrative; the actions are what the code does.
+
+| You say (in Indonesian) | What Mika does |
+|---|---|
+| "Halo Mika, buka YouTube" | Opens YouTube instantly, without calling the AI at all |
+| "Halo Mika, harga emas hari ini berapa?" | Says "Bentar, Mika cariin dulu ya", searches the web, reads the top pages, then answers "Menurut Kompas, ..." |
+| "Buka yang kedua" | Opens the second search result in the browser |
+| "Aku lagi capek nih" | Replies with empathy and remembers the conversation |
+| "Matikan laptop" | Asks "Yakin?" and only shuts down after a spoken "iya" |
+
+### Skills demonstrated
+
+| Skill | Where to see it |
+|---|---|
+| LLM agent with tool calling (8 tools) | [agent.py](mika/brain/agent.py), [toolset.py](mika/brain/toolset.py) |
+| Several LLM providers, local first, automatic fallback | [mika/brain/llm/](mika/brain/llm/) |
+| Streaming voice: speaks while the model is still writing | [sentences.py](mika/brain/sentences.py), [speech.py](mika/audio/speech.py) |
+| Web search, page reading, answers with cited sources | [web_search.py](mika/skills/web_search.py) |
+| AI safety and prompt-injection defence | [tools.py](mika/brain/tools.py), [web_search.py](mika/skills/web_search.py) |
+| Hybrid routing: fast rules first, AI for the rest | [router.py](mika/brain/router.py) |
+| Testing AI features without a real model | [tests/](tests/) |
+| Refactoring legacy code without breaking it | [assistant.py](assistant.py) (old entry point still works), [test_router.py](tests/test_router.py) |
+
+### Architecture
+
+```mermaid
+flowchart LR
+    Mic[Microphone] --> STT[Speech to text]
+    STT --> Wake{"Wake phrase<br/>'Halo Mika'"}
+    Wake --> Router{Rule router}
+    Router -- "known command<br/>e.g. buka youtube" --> Skills[Skills<br/>apps, websites, files, power]
+    Router -- "everything else" --> Agent[LLM agent]
+    Agent <--> LLM[("LLM<br/>Ollama, then cloud API")]
+    Agent --> Tools[Tools]
+    Tools --> Skills
+    Tools --> Web[Web search<br/>and page reader]
+    Agent --> TTS[Streaming speech]
+    Skills --> TTS
+    Agent --> Screen[Screen: details and sources]
+    TTS --> Speaker[Speaker]
+```
+
+### Key engineering decisions
+
+1. **Rules first, AI second.** Known commands like "buka youtube" stay instant and work offline, because even a small local model adds a noticeable delay just to pick a tool. The router has no side effects, so its accuracy can be tested without a model.
+2. **Local-first AI with automatic fallback.** Qwen3 4B runs in Ollama inside 4 GB of VRAM: free, private, and offline. An OpenAI-compatible API is the backup. A failed provider is skipped for 2 minutes instead of costing a timeout on every request, and the switch only happens before the first word is spoken.
+3. **Speak while thinking.** Each sentence goes to text-to-speech as soon as it is complete, and the next one is synthesized while the current one plays. Spoken answers stay at 1 to 3 sentences; long details and sources appear on screen. Slow tools start with a short filler line, and simple actions skip a second AI call.
+4. **Safety in code, not only in the prompt.** Risky actions (shutdown, restart) only create a pending action that runs after the user says "iya". The AI has no tool to delete files or run commands, cannot open program files or non-web links, and treats web pages as data: text that tries to inject instructions is cleaned before the model sees it, and only public websites are fetched.
+5. **Small memory budget.** Conversation history keeps answers, not whole web pages, so it fits the 4k-token context of a small model.
+6. **Graceful degradation.** No AI model available: Mika behaves like the old version. No search API key: a free fallback search. Online voice unavailable: the Windows voice.
+
+Problems found while testing on the real laptop, and fixed:
+
+- The online voice (Edge TTS) was rejected by the server until the library was upgraded; its first call takes about 3 seconds, so it is now warmed up at startup (later calls take about 0.5 seconds).
+- DuckDuckGo is DNS-blocked by some Indonesian internet providers, so the free search now tries other engines first.
+- Wikipedia and Cloudflare-protected sites block clients that pretend to be a browser; an honest User-Agent fixed it.
+- The old command parser opened apps whenever their name appeared anywhere ("apa itu python" launched Python); matching is now whole-word and needs a verb.
+
+### Code tour
+
+| Order | File | What to look for |
+|---|---|---|
+| 1 | [mika/assistant.py](mika/assistant.py) | The main flow for one spoken sentence |
+| 2 | [mika/brain/router.py](mika/brain/router.py) | How Mika decides between a rule and the AI |
+| 3 | [mika/brain/agent.py](mika/brain/agent.py) | The AI loop: stream, speak, call tools |
+| 4 | [mika/brain/toolset.py](mika/brain/toolset.py) | What the AI may do, and what it is deliberately not allowed to do |
+| 5 | [mika/brain/llm/fallback.py](mika/brain/llm/fallback.py) | Switching between local and cloud models |
+| 6 | [tests/test_assistant.py](tests/test_assistant.py) | End-to-end behaviour, readable as a specification |
+
+Every class and function in the AI code has a one-line comment explaining what it does and why.
+
+### Status and roadmap
+
+| Stage | Content | Status |
+|---|---|---|
+| 1 | AI agent, tools, web search read aloud, streaming voice, tests | Done |
+| 2 | Alexa-style skills: timers, reminders, weather, media and volume, notes | Planned |
+| 3 | Offline speech recognition (Whisper), interrupting Mika while she speaks | Planned |
+| 4 | "Look at my screen" (vision), clipboard, morning briefing, long-term memory | Planned |
+| 5 | Evaluation set, latency benchmark, demo video | Planned |
+
+Measured so far: speech synthesis about 0.5 s per sentence after warm-up; web search plus page reading 1 to 2.5 s when the free search succeeds. Not yet measured: end-to-end AI response time on the target laptop (planned for stage 5). Details: [docs/ROADMAP.md](docs/ROADMAP.md).
+
+### Tech stack
+
+Python 3.11, Ollama (Qwen3 4B), OpenAI-compatible API, httpx, Tavily / Brave Search / ddgs, trafilatura, Edge TTS, SpeechRecognition, pystray, Tkinter, PyInstaller, pytest.
+
+### Run it locally
 
 ```powershell
 python -m pip install -r requirements.txt
+ollama pull qwen3:4b
+python assistant.py --text --mute   # type instead of talk, no sound
+python tray_assistant.py            # full voice assistant in the system tray
+python -m pytest                    # run the tests
 ```
 
-4. Tes tanpa mikrofon:
+API keys are optional and go in a `.env` file (see [.env.example](.env.example)); they are never committed. Full user guide (Indonesian): [docs/PANDUAN_PENGGUNA.md](docs/PANDUAN_PENGGUNA.md).
 
-```powershell
-python assistant.py --text
-```
-
-5. Jalankan mode suara:
-
-```powershell
-python assistant.py
-```
-
-Kamu juga bisa klik `run_text.bat` atau `run_voice.bat`.
-
-## Mode aplikasi background
-
-Jalankan:
-
-```powershell
-.\run_background.bat
-```
-
-Assistant akan berjalan tanpa terminal dan muncul di system tray Windows. Klik kanan ikon tray untuk:
-
-- `Mulai dengar`
-- `Stop dengar`
-- `Tes mikrofon`
-- `Settings`
-- `Buka commands.json`
-- `Reload config`
-- `Keluar`
-
-Supaya otomatis aktif saat laptop dinyalakan, jalankan:
-
-```powershell
-.\install_startup.bat
-```
-
-Untuk mematikan auto-start lagi:
-
-```powershell
-.\uninstall_startup.bat
-```
-
-## Build menjadi EXE
-
-Jalankan:
-
-```powershell
-.\build_exe.bat
-```
-
-Hasilnya ada di:
+### Project structure
 
 ```text
-dist\MikaAssistant.exe
+mika/
+  assistant.py      main flow for one utterance
+  brain/            rule router, LLM agent, tools, prompt, memory
+    llm/            Ollama, OpenAI-compatible, fallback chain
+  skills/           open apps/sites/files, web search, power actions
+  audio/            wake phrase, speech to text, text to speech
+  ui/               tray app, settings window, on-screen details
+tests/              144 tests with a fake microphone, speaker, and LLM
+docs/               roadmap and user guide
 ```
 
-Simpan `commands.json` di folder `dist` bersama exe supaya menu `Buka commands.json` dan setting perintah tetap mudah diedit.
+### Glossary
 
-## Kalau assistant tidak mendengar suara
+| Term | Meaning |
+|---|---|
+| LLM | Large language model, the technology behind ChatGPT |
+| Local model | An LLM that runs on the laptop itself, so it is free, private, and works offline |
+| Tool calling | The AI asks the app to run a function (open an app, search the web) instead of only writing text |
+| Streaming | Using the answer while it is still being generated, so Mika starts talking sooner |
+| Fallback | A backup that takes over automatically when the main option fails |
+| Prompt injection | Text on a web page that tries to trick the AI into following its instructions |
+| Mock | A fake component used in tests, such as a pretend microphone or AI model |
 
-Jalankan:
+---
+
+## Bahasa Indonesia
+
+### Panduan membaca
+
+| Waktu yang tersedia | Bagian yang dibaca |
+|---|---|
+| 1 menit | [Singkatnya](#singkatnya) dan [Contoh percakapan](#contoh-percakapan) |
+| 3 menit | + [Kemampuan yang ditunjukkan](#kemampuan-yang-ditunjukkan) |
+| 10 menit (reviewer teknis) | + [Arsitektur](#arsitektur), [Keputusan teknis utama](#keputusan-teknis-utama), [Tur kode](#tur-kode) |
+
+Istilah teknis dijelaskan di [daftar istilah](#daftar-istilah).
+
+### Singkatnya
+
+- **Apa:** asisten suara pribadi seperti Alexa, tapi berjalan di laptop Windows dan berbicara bahasa Indonesia santai.
+- **Yang menarik:** menggabungkan model AI lokal yang jalan offline di GPU laptop 4 GB, tool calling, pencarian web dengan sumber yang disebutkan, dan suara streaming, dengan aturan keamanan yang dijaga di kode.
+- **Peran saya:** developer tunggal. Saya membangun ulang versi lama yang berbasis aturan (satu file 1.650 baris) menjadi agent AI yang modular dan teruji, tanpa merusak fitur lama.
+- **Kualitas:** 144 test otomatis yang selesai dalam sekitar 3 detik, tanpa butuh mikrofon, speaker, model AI, atau internet.
+
+### Contoh percakapan
+
+Jawaban Mika di bawah ini hanya ilustrasi; aksinya sesuai dengan yang dikerjakan kode.
+
+| Kamu bilang | Yang Mika lakukan |
+|---|---|
+| "Halo Mika, buka YouTube" | Langsung membuka YouTube tanpa memanggil AI |
+| "Halo Mika, harga emas hari ini berapa?" | Bilang "Bentar, Mika cariin dulu ya", mencari di internet, membaca halaman teratas, lalu menjawab "Menurut Kompas, ..." |
+| "Buka yang kedua" | Membuka hasil pencarian kedua di browser |
+| "Aku lagi capek nih" | Menjawab dengan empati dan mengingat percakapan |
+| "Matikan laptop" | Bertanya "Yakin?" dan baru mematikan laptop setelah dijawab "iya" |
+
+### Kemampuan yang ditunjukkan
+
+| Kemampuan | Lihat di |
+|---|---|
+| Agent LLM dengan tool calling (8 tool) | [agent.py](mika/brain/agent.py), [toolset.py](mika/brain/toolset.py) |
+| Beberapa provider LLM, lokal dulu, fallback otomatis | [mika/brain/llm/](mika/brain/llm/) |
+| Suara streaming: mulai bicara sebelum AI selesai menulis | [sentences.py](mika/brain/sentences.py), [speech.py](mika/audio/speech.py) |
+| Pencarian web, membaca halaman, jawaban dengan sumber | [web_search.py](mika/skills/web_search.py) |
+| Keamanan AI dan pertahanan terhadap prompt injection | [tools.py](mika/brain/tools.py), [web_search.py](mika/skills/web_search.py) |
+| Routing hibrida: aturan cepat dulu, AI untuk sisanya | [router.py](mika/brain/router.py) |
+| Menguji fitur AI tanpa model sungguhan | [tests/](tests/) |
+| Refactor kode lama tanpa merusaknya | [assistant.py](assistant.py) (entry point lama tetap jalan), [test_router.py](tests/test_router.py) |
+
+### Arsitektur
+
+```mermaid
+flowchart LR
+    Mic[Mikrofon] --> STT[Suara ke teks]
+    STT --> Wake{"Kata panggil<br/>'Halo Mika'"}
+    Wake --> Router{Router aturan}
+    Router -- "perintah dikenal<br/>mis. buka youtube" --> Skills[Skill<br/>aplikasi, website, file, power]
+    Router -- "selain itu" --> Agent[Agent LLM]
+    Agent <--> LLM[("LLM<br/>Ollama, lalu API cloud")]
+    Agent --> Tools[Tool]
+    Tools --> Skills
+    Tools --> Web[Pencarian web<br/>dan pembaca halaman]
+    Agent --> TTS[Suara streaming]
+    Skills --> TTS
+    Agent --> Screen[Layar: rincian dan sumber]
+    TTS --> Speaker[Speaker]
+```
+
+### Keputusan teknis utama
+
+1. **Aturan dulu, AI kemudian.** Perintah yang sudah dikenal seperti "buka youtube" tetap instan dan jalan offline, karena model lokal yang kecil pun menambah jeda yang terasa hanya untuk memilih tool. Router tidak punya efek samping, jadi akurasinya bisa diuji tanpa model.
+2. **AI lokal dengan fallback otomatis.** Qwen3 4B berjalan di Ollama dalam VRAM 4 GB: gratis, privat, dan offline. API yang kompatibel dengan OpenAI menjadi cadangan. Provider yang gagal dilewati selama 2 menit supaya tidak menambah waktu tunggu di setiap permintaan, dan perpindahan hanya terjadi sebelum kata pertama diucapkan.
+3. **Bicara sambil berpikir.** Setiap kalimat langsung diubah jadi suara begitu selesai, dan kalimat berikutnya disiapkan selagi kalimat sekarang diputar. Jawaban suara dibatasi 1 sampai 3 kalimat; rincian panjang dan sumber tampil di layar. Tool yang lambat diawali kalimat pengisi singkat, dan aksi sederhana tidak perlu panggilan AI kedua.
+4. **Keamanan di kode, bukan hanya di prompt.** Aksi berisiko (mematikan, restart) hanya membuat aksi tertunda yang dijalankan setelah pengguna bilang "iya". AI tidak punya tool untuk menghapus file atau menjalankan perintah, tidak bisa membuka file program atau link non-web, dan memperlakukan halaman web sebagai data: teks yang mencoba menyisipkan instruksi dibersihkan sebelum dibaca model, dan hanya situs publik yang diambil.
+5. **Memori yang hemat.** Riwayat percakapan menyimpan jawaban, bukan isi halaman web, supaya muat di konteks 4k token milik model kecil.
+6. **Tetap berfungsi saat ada yang mati.** Model AI tidak tersedia: Mika kembali ke perilaku versi lama. Tidak ada API key pencarian: pakai pencarian gratis. Suara online mati: pakai suara Windows.
+
+Masalah yang ditemukan saat diuji di laptop sungguhan, dan sudah diperbaiki:
+
+- Suara online (Edge TTS) ditolak server sampai library-nya di-upgrade; panggilan pertamanya butuh sekitar 3 detik, jadi sekarang dipanaskan saat startup (panggilan berikutnya sekitar 0,5 detik).
+- DuckDuckGo diblokir DNS oleh sebagian provider internet Indonesia, jadi pencarian gratis sekarang mencoba mesin lain lebih dulu.
+- Wikipedia dan situs ber-Cloudflare memblokir klien yang menyamar sebagai browser; User-Agent yang jujur menyelesaikannya.
+- Parser perintah lama membuka aplikasi setiap kali namanya muncul di kalimat ("apa itu python" membuka Python); sekarang harus kata utuh dan disertai kata kerja.
+
+### Tur kode
+
+| Urutan | File | Yang perlu dilihat |
+|---|---|---|
+| 1 | [mika/assistant.py](mika/assistant.py) | Alur utama untuk satu kalimat yang diucapkan |
+| 2 | [mika/brain/router.py](mika/brain/router.py) | Cara Mika memilih antara aturan dan AI |
+| 3 | [mika/brain/agent.py](mika/brain/agent.py) | Loop AI: streaming, bicara, memanggil tool |
+| 4 | [mika/brain/toolset.py](mika/brain/toolset.py) | Apa yang boleh dilakukan AI, dan apa yang sengaja tidak diizinkan |
+| 5 | [mika/brain/llm/fallback.py](mika/brain/llm/fallback.py) | Perpindahan antara model lokal dan cloud |
+| 6 | [tests/test_assistant.py](tests/test_assistant.py) | Perilaku end-to-end, bisa dibaca seperti spesifikasi |
+
+Setiap class dan fungsi di kode AI punya komentar satu baris yang menjelaskan apa yang dilakukannya dan alasannya.
+
+### Status dan rencana
+
+| Tahap | Isi | Status |
+|---|---|---|
+| 1 | Agent AI, tool, pencarian web yang dibacakan, suara streaming, test | Selesai |
+| 2 | Skill ala Alexa: timer, pengingat, cuaca, media dan volume, catatan | Direncanakan |
+| 3 | Pengenalan suara offline (Whisper), memotong Mika saat sedang bicara | Direncanakan |
+| 4 | "Lihat layarku" (vision), clipboard, briefing pagi, memori jangka panjang | Direncanakan |
+| 5 | Dataset evaluasi, benchmark latensi, video demo | Direncanakan |
+
+Yang sudah diukur: sintesis suara sekitar 0,5 detik per kalimat setelah pemanasan; pencarian web plus membaca halaman 1 sampai 2,5 detik saat pencarian gratis berhasil. Yang belum diukur: waktu respons AI end-to-end di laptop target (direncanakan di tahap 5). Detail: [docs/ROADMAP.md](docs/ROADMAP.md).
+
+### Teknologi
+
+Python 3.11, Ollama (Qwen3 4B), API kompatibel OpenAI, httpx, Tavily / Brave Search / ddgs, trafilatura, Edge TTS, SpeechRecognition, pystray, Tkinter, PyInstaller, pytest.
+
+### Menjalankan di laptop sendiri
 
 ```powershell
-.\run_mic_test.bat
+python -m pip install -r requirements.txt
+ollama pull qwen3:4b
+python assistant.py --text --mute   # mengetik, bukan bicara, tanpa suara
+python tray_assistant.py            # asisten suara lengkap di system tray
+python -m pytest                    # menjalankan test
 ```
 
-Tes ini akan menampilkan daftar microphone dan mencoba mengenali suara. Kalau microphone default salah, edit `commands.json` dan isi `listen.device_index` dengan angka microphone yang benar, lalu klik `Reload config` dari tray.
+API key bersifat opsional dan disimpan di file `.env` (lihat [.env.example](.env.example)); file ini tidak pernah masuk Git. Panduan pemakaian lengkap: [docs/PANDUAN_PENGGUNA.md](docs/PANDUAN_PENGGUNA.md).
 
-## Biar terasa responsif
-
-Mika memakai deteksi jeda bicara yang lebih pendek supaya cepat merespons setelah kamu selesai ngomong:
-
-```json
-"listen": {
-  "ambient_adjust_seconds": 0.15,
-  "pause_threshold": 0.45,
-  "non_speaking_duration": 0.2
-}
-```
-
-Kalau Mika terlalu cepat memotong kalimat panjang, naikkan `pause_threshold` ke `0.6` atau `0.7`. Kalau Mika masih terasa lama menjawab, turunkan sedikit ke `0.35`.
-
-## Contoh perintah
-
-- `halo mika buka youtube`
-- `ini random halo mika buka youtube`
-- `halo mica buka youtube`
-- `halo mika cari kucing lucu di youtube`
-- `halo mika nonton youtube tentang valorant`
-- `halo mika cari cuaca jakarta di google`
-- `halo mika buka gmail`
-- `halo mika buka notepad`
-- `halo mika buka kalkulator`
-- `halo mika buka counter strike`
-- `halo mika main cs2`
-- `halo mika aku mau main cs2 dong`
-- `halo mika putar lagu malu malu dari dia dan indahkus di spotify`
-- `halo mika puterin lagu yang santai`
-- `halo mika buka file laporan`
-- `halo mika cari file skripsi revisi`
-- `halo mika buka folder downloads`
-- `halo mika sleep laptop`
-- `halo mika matikan laptop`
-- `halo mika bantuan`
-- `halo mika keluar`
-- `halo mika apa kabar`
-- `halo mika ngobrol yuk`
-- `halo mika aku lagi capek`
-- `halo mika cerita lucu`
-
-## Aksi penting pakai konfirmasi
-
-Perintah seperti shutdown, restart, sleep, lock, dan logout tidak langsung dijalankan. Mika akan bertanya konfirmasi dulu.
-
-Contoh:
+### Struktur proyek
 
 ```text
-halo mika matikan laptop
+mika/
+  assistant.py      alur utama untuk satu ucapan
+  brain/            router aturan, agent LLM, tool, prompt, memori
+    llm/            Ollama, API kompatibel OpenAI, rantai fallback
+  skills/           buka aplikasi/website/file, pencarian web, aksi power
+  audio/            kata panggil, suara ke teks, teks ke suara
+  ui/               aplikasi tray, jendela settings, rincian di layar
+tests/              144 test dengan mikrofon, speaker, dan LLM palsu
+docs/               rencana dan panduan pengguna
 ```
 
-Mika akan menjawab:
-
-```text
-Yakin? Bilang iya untuk lanjut. Kalau tidak, bilang batal.
-```
-
-Jawab `iya` untuk lanjut, atau `batal` untuk membatalkan.
-
-## Wake phrase live
-
-Mika mendengarkan dalam potongan pendek. Dia mengabaikan suara biasa, lalu mulai memproses ketika mendengar wake phrase seperti:
-
-- `halo mika`
-- `hai mika`
-- `hey mika`
-- `halo mica`
-- `halo nika`
-
-Wake phrase boleh muncul di tengah transcript. Jadi kalau speech recognition menangkap:
-
-```text
-ada suara lain halo mika buka youtube
-```
-
-Mika akan mengambil bagian setelah wake phrase:
-
-```text
-buka youtube
-```
-
-Kalau kamu cuma bilang `halo mika`, Mika akan menjawab dan menunggu perintah lanjutan beberapa detik. `Halo zeta` masih disimpan sementara sebagai fallback lama.
-
-## Ngobrol ringan
-
-Mika bisa merespons obrolan pendek tanpa membuka aplikasi. Contoh:
-
-```text
-halo mika apa kabar
-halo mika siapa kamu
-halo mika aku bosan
-halo mika aku lagi stres
-halo mika temenin aku
-halo mika kamu bisa apa
-```
-
-Kalau kamu bilang `halo mika ngobrol yuk`, Mika mengaktifkan mode ngobrol sebentar. Selama beberapa detik setelah itu kamu bisa lanjut bicara tanpa mengulang wake word. Untuk menutupnya:
-
-```text
-selesai ngobrol
-```
-
-Mode ngobrol ini tetap pendek supaya Mika tidak terlalu sensitif menangkap suara random.
-
-## Settings GUI
-
-Buka dari tray Mika dengan menu `Settings`, atau jalankan:
-
-```powershell
-.\run_settings.bat
-```
-
-Di Settings kamu bisa mengubah nama assistant, wake phrase, voice preset, voice manual, mic device, responsivitas mic, serta menambah website, aplikasi, game, dan file/folder tanpa edit JSON manual.
-
-Setelah menyimpan perubahan, klik kanan tray Mika lalu pilih `Reload config`.
-
-## Auto-discovery aplikasi dan game
-
-Mika otomatis scan shortcut di Start Menu/Desktop dan mencoba membaca Steam library. Jadi banyak aplikasi bisa langsung dibuka, misalnya:
-
-```text
-halo mika buka file explorer
-halo mika buka osu
-```
-
-Kalau aplikasi/game tidak ketemu, tambahkan manual lewat Settings atau `commands.json`.
-
-## Mengatur website, aplikasi, dan file
-
-Edit `commands.json`.
-
-Contoh tambah website:
-
-```json
-"websites": {
-  "youtube": "https://www.youtube.com",
-  "kampus": "https://nama-website-kampus.ac.id"
-}
-```
-
-Contoh tambah file:
-
-```json
-"files": {
-  "skripsi": "C:/Users/YSLRS/Documents/skripsi.docx"
-}
-```
-
-Contoh tambah aplikasi:
-
-```json
-"apps": {
-  "word": "winword.exe",
-  "excel": "excel.exe"
-}
-```
-
-Contoh tambah game Steam:
-
-```json
-"games": {
-  "counter strike": "steam://rungameid/730",
-  "dota": "steam://rungameid/570"
-}
-```
-
-Contoh tambah game dari file `.exe`:
-
-```json
-"games": {
-  "game lokal": "D:/Games/Nama Game/Game.exe"
-}
-```
-
-Contoh tambah alias lagu Spotify:
-
-```json
-"music": {
-  "provider": "spotify",
-  "open_mode": "web",
-  "songs": {
-    "malu malu": "Malu Malu Dia Indahkus"
-  }
-}
-```
-
-## Suara Character AI
-
-Project ini default memakai suara neural Indonesia lewat `edge-tts`, jadi lebih natural daripada text-to-speech Windows bawaan. Setting default dibuat agak lebih imut:
-
-```json
-"voice": {
-  "provider": "edge",
-  "edge_voice": "id-ID-GadisNeural",
-  "edge_rate": "+12%",
-  "edge_pitch": "+10Hz"
-}
-```
-
-Kamu bisa pilih preset dari Settings:
-
-- `cute`: lebih imut, cepat sedikit, pitch naik
-- `soft`: lembut dan natural
-- `calm`: lebih pelan dan tenang
-- `anime`: lebih ceria dan anime-ish, tapi tetap original Mika
-- `custom`: pakai setting manual yang kamu isi sendiri
-
-Preset juga mengubah gaya jawaban Mika, misalnya:
-
-```text
-Iya, Mika denger.
-Oke, Mika bukain YouTube ya.
-Sebentar, Mika cari musik santai di YouTube.
-```
-
-Untuk suara laki-laki Indonesia, ganti `edge_voice` menjadi:
-
-```json
-"edge_voice": "id-ID-ArdiNeural"
-```
-
-Lihat daftar voice neural Indonesia:
-
-```powershell
-python list_neural_voices.py
-```
-
-Kalau mau kembali ke suara Windows bawaan, isi:
-
-```json
-"provider": "sapi"
-```
-
-Saat memakai `provider: "sapi"`, suara yang tersedia tergantung voice yang terpasang di Windows. Kamu bisa pilih voice dengan mengisi `voice.name_contains` di `commands.json`, misalnya `"indonesia"` atau bagian nama voice lain yang muncul di Windows.
-
-Lihat daftar voice yang tersedia:
-
-```powershell
-python list_voices.py
-```
-
-Voice dari Character.AI tidak dipakai langsung di sini karena integrasi suara Character.AI tidak tersedia sebagai API resmi umum untuk assistant lokal. Kalau kamu ingin suara yang lebih mirip karakter, opsi yang lebih rapi adalah memakai voice TTS resmi seperti Windows Indonesian voice, ElevenLabs, Azure Speech, Google Cloud TTS, atau OpenAI TTS, selama kamu punya izin untuk suara/karakter yang dipakai.
-
-## Voice Tone Trainer
-
-Project ini juga punya tone trainer legal untuk mengatur suara Mika dari rekaman yang kamu punya izin. Ini bukan voice cloning dan tidak meniru identitas suara orang/karakter. Yang dianalisis hanya tone/prosody sederhana seperti pitch, tempo, jeda, dan energi.
-
-Rekam sample suara:
-
-```powershell
-python voice_tone_trainer.py record --name my_voice --seconds 45 --i-have-rights
-```
-
-Analisis sample dan langsung apply ke `commands.json`:
-
-```powershell
-python voice_tone_trainer.py analyze --name my_voice --apply --i-have-rights
-```
-
-Kalau sudah punya WAV sendiri:
-
-```powershell
-python voice_tone_trainer.py analyze --name my_voice --samples "C:\path\ke\folder_wav" --apply --i-have-rights
-```
-
-Hasil profile tersimpan di:
-
-```text
-voice_profiles\my_voice\profile.json
-```
-
-Setelah apply, klik kanan tray Mika lalu pilih `Reload config`. Kalau hasilnya terlalu cempreng atau terlalu rendah, buka Settings dan tweak `Voice pitch` / `Voice rate`.
-
-## Personal Voice Model
-
-Kalau suaranya adalah suara kamu sendiri, kamu bisa membuat dataset dan training model personal. Ini jauh lebih berat daripada tone trainer: butuh banyak sample bersih, waktu lama, dan idealnya GPU NVIDIA/CUDA.
-
-Install dependency opsional:
-
-```powershell
-python -m pip install -r requirements_personal_voice.txt
-```
-
-Lihat microphone:
-
-```powershell
-python personal_voice_recorder.py list-devices
-```
-
-Rekam dataset dari prompt Indonesia:
-
-```powershell
-python personal_voice_recorder.py record --name my_voice --seconds-per-prompt 7 --i-own-this-voice
-```
-
-Rapikan dataset dan buat metadata:
-
-```powershell
-python personal_voice_recorder.py prepare --name my_voice --i-own-this-voice
-```
-
-Training VITS dari dataset:
-
-```powershell
-python personal_voice_train_vits.py train --name my_voice --epochs 1000 --batch-size 8 --i-own-this-voice
-```
-
-Tes checkpoint hasil training:
-
-```powershell
-python personal_voice_train_vits.py synthesize --model-path "C:\path\best_model.pth" --config-path "C:\path\config.json" --text "Halo, aku Mika." --i-own-this-voice
-```
-
-Pakai model hasil training di Mika:
-
-```powershell
-python personal_voice_train_vits.py apply-model --model-path "C:\path\best_model.pth" --config-path "C:\path\config.json" --i-own-this-voice
-```
-
-Mode cepat tanpa training penuh, pakai XTTS reference voice dari WAV kamu sendiri:
-
-```powershell
-python personal_voice_train_vits.py apply-xtts --speaker-wav "C:\path\suara_kamu.wav" --i-own-this-voice
-```
-
-Setelah apply, klik kanan tray Mika lalu pilih `Reload config`. Untuk menjalankan provider Coqui/XTTS dari Python, jalankan Mika dengan:
-
-```powershell
-python tray_assistant.py
-```
-
-Catatan: membundel PyTorch/TTS ke `.exe` bisa sangat besar dan sering rewel, jadi mode personal voice lokal paling stabil dijalankan lewat Python dulu.
-
-## Training di Kaggle
-
-Kalau laptop tidak kuat training, package dataset untuk Kaggle:
-
-```powershell
-python personal_voice_recorder.py package-kaggle --name my_voice --i-own-this-voice
-```
-
-Upload zip dari `voice_models\_kaggle_exports` ke Kaggle Dataset. Di Kaggle Notebook, upload [kaggle_personal_voice_train.py](./kaggle_personal_voice_train.py), aktifkan GPU, lalu jalankan:
-
-```python
-!pip install -q TTS>=0.22.0 torch torchaudio
-!python /kaggle/working/kaggle_personal_voice_train.py validate --dataset "/kaggle/input/my-voice-kaggle-dataset/my_voice_kaggle_dataset.zip" --i-own-this-voice
-!python /kaggle/working/kaggle_personal_voice_train.py train --dataset "/kaggle/input/my-voice-kaggle-dataset/my_voice_kaggle_dataset.zip" --epochs 1000 --batch-size 8 --mixed-precision --export --i-own-this-voice
-```
-
-Download `/kaggle/working/mika_voice_export.zip`, unzip di laptop, lalu apply model dengan command `apply-model` di atas. Detail lengkap ada di [KAGGLE_PERSONAL_VOICE.md](./KAGGLE_PERSONAL_VOICE.md).
+### Daftar istilah
+
+| Istilah | Arti |
+|---|---|
+| LLM | Large language model, teknologi di balik ChatGPT |
+| Model lokal | LLM yang berjalan di laptop sendiri, jadi gratis, privat, dan bisa offline |
+| Tool calling | AI meminta aplikasi menjalankan fungsi (membuka aplikasi, mencari di web), bukan hanya menulis teks |
+| Streaming | Memakai jawaban selagi masih dibuat, sehingga Mika bisa mulai bicara lebih cepat |
+| Fallback | Cadangan yang otomatis mengambil alih saat pilihan utama gagal |
+| Prompt injection | Teks di halaman web yang mencoba menipu AI agar mengikuti instruksinya |
+| Mock | Komponen palsu untuk test, misalnya mikrofon atau model AI pura-pura |
