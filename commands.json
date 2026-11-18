@@ -151,6 +151,7 @@
   },
   "search": {
     "default_provider": "google",
+    "plain_search_mode": "answer",
     "providers": {
       "google": "https://www.google.com/search?q={query}",
       "youtube": "https://www.youtube.com/results?search_query={query}",
@@ -168,5 +169,60 @@
   ],
   "file_search": {
     "max_seconds": 5
+  },
+  "llm": {
+    "enabled": true,
+    "providers": [
+      "ollama",
+      "openai"
+    ],
+    "temperature": 0.6,
+    "max_output_tokens": 400,
+    "failure_cooldown_seconds": 120,
+    "warmup": true,
+    "ollama": {
+      "base_url": "http://127.0.0.1:11434",
+      "model": "qwen3:4b",
+      "think": false,
+      "keep_alive": "30m",
+      "num_ctx": 4096,
+      "connect_timeout_seconds": 1.5,
+      "read_timeout_seconds": 60
+    },
+    "openai": {
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-5-mini",
+      "api_key_env": "OPENAI_API_KEY",
+      "base_url_env": "OPENAI_BASE_URL",
+      "reasoning_effort": "minimal",
+      "send_temperature": false,
+      "max_tokens_param": "max_completion_tokens",
+      "connect_timeout_seconds": 3,
+      "read_timeout_seconds": 60
+    }
+  },
+  "agent": {
+    "max_tool_steps": 4,
+    "history_turns": 6,
+    "session_idle_minutes": 15,
+    "max_spoken_sentences": 3,
+    "fast_action_replies": true
+  },
+  "web_search": {
+    "providers": [
+      "tavily",
+      "brave",
+      "duckduckgo"
+    ],
+    "max_results": 5,
+    "fetch_pages": 3,
+    "page_chars": 1200,
+    "timeout_seconds": 6,
+    "page_deadline_seconds": 3.5,
+    "region": "id-id",
+    "ddgs_backends": [
+      "yahoo",
+      "auto"
+    ]
   }
 }

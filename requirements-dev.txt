@@ -1,0 +1,3 @@
+# Tests mock the microphone, TTS, and LLM, so only these are needed to run them.
+pytest>=8.0
+httpx>=0.27

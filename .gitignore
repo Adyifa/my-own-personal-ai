@@ -13,11 +13,24 @@ dist/
 .ipynb_checkpoints/
 .pytest_cache/
 
+# Secrets: API keys live only in .env (see .env.example)
+.env
+.env.*
+!.env.example
+
+# Personal data: memory, notes, logs, reminders
+data/
+logs/
+
 # Personal voice data and generated model artifacts
 voice_models/
 voice_profiles/
+recordings/
 *.wav
 *.mp3
+*.flac
+*.ogg
+*.m4a
 *.pth
 *.pt
 *.ckpt

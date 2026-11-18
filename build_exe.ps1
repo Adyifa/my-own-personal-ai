@@ -33,6 +33,9 @@ python -m PyInstaller `
     --windowed `
     --name MikaAssistant `
     --hidden-import settings_gui `
+    --hidden-import mika.ui.settings `
+    --collect-data trafilatura `
+    --collect-data justext `
     --hidden-import tkinter `
     --hidden-import edge_tts `
     --hidden-import pygame `
@@ -48,3 +51,4 @@ Write-Host "EXE selesai dibuat:"
 Write-Host (Join-Path $projectDir "dist\MikaAssistant.exe")
 Write-Host ""
 Write-Host "Catatan: commands.json harus tetap di folder dist agar setting mudah diedit."
+Write-Host "Mode AI: salin .env (API key) ke folder dist secara manual bila perlu. Jangan ikut dibagikan."
