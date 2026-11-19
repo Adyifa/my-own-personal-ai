@@ -102,7 +102,7 @@ def _validate(spec: ToolSpec, raw: dict[str, Any]) -> tuple[dict[str, Any], str 
     arguments: dict[str, Any] = {}
     for key, value in raw.items():
         schema = properties.get(key)
-        if schema is None:
+        if schema is None or value is None:
             continue
         expected = schema.get("type")
         try:

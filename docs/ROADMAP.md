@@ -16,10 +16,18 @@ runs on a Windows laptop (RTX 3050, 4 GB VRAM), while keeping the old fast, offl
 - [x] Short-term conversation context.
 - [x] pytest suite with mocked STT/TTS/LLM.
 
-## Stage 2: Alexa-style skills
+## Stage 2: Alexa-style skills (done)
 
-Timers and reminders (persisted, voice + notification), weather (Open-Meteo, no key),
-date/time (offline rule), media keys and volume, battery/system info, quick notes.
+- [x] Indonesian time parser: relative ("30 menit lagi"), clock ("jam setengah 8 malam", "19.30",
+      "jam 10 kurang seperempat"), day words ("besok", "lusa", "hari Senin"), spelled-out numbers.
+- [x] Timers, reminders, alarms: saved to `data/reminders.json`, 1-second scheduler thread, chime + voice +
+      notification, missed reminders announced late after a restart, snooze, list and cancel by name.
+- [x] Follow-up questions without the wake phrase ("Mau diingatkan kapan?" → "jam 9 malam").
+- [x] Weather from Open-Meteo (no key), default city in config, details on screen.
+- [x] Date and time (offline), media keys, exact volume via Core Audio (key-press fallback), battery and
+      CPU/RAM/disk via psutil, quick notes in `data/notes.md`.
+- [x] Same skills exposed to the agent as 5 grouped tools; the LLM extracts the time phrase, the parser computes it.
+- [x] Verified live on the target laptop (read-only checks; volume set to its own value).
 
 ## Stage 3: Audio
 

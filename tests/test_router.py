@@ -56,6 +56,74 @@ def test_routes(config, launcher, utterance, path, intent):
     assert (route.path, route.intent) == (path, intent), route
 
 
+@pytest.mark.parametrize(
+    ("utterance", "intent"),
+    [
+        ("jam berapa sekarang", "time_now"),
+        ("sekarang jam berapa ya", "time_now"),
+        ("hari ini tanggal berapa", "date_today"),
+        ("hari apa sekarang", "date_today"),
+        ("pasang timer 5 menit", "timer_set"),
+        ("timer sepuluh menit buat masak", "timer_set"),
+        ("sisa timer berapa lagi", "timer_status"),
+        ("batalkan timer", "timer_cancel"),
+        ("stop timer", "timer_cancel"),
+        ("ingatkan aku jam 7 malam minum obat", "reminder_set"),
+        ("tolong ingetin aku 30 menit lagi angkat jemuran", "reminder_set"),
+        ("bangunkan aku besok jam 5 pagi", "reminder_set"),
+        ("pasang alarm jam 6 pagi", "reminder_set"),
+        ("pengingat apa saja", "reminder_list"),
+        ("lihat pengingat", "reminder_list"),
+        ("hapus pengingat minum obat", "reminder_cancel"),
+        ("matikan alarm", "reminder_cancel"),
+        ("tunda 10 menit", "snooze"),
+        ("ingatkan lagi 5 menit", "snooze"),
+        ("cuaca hari ini", "weather"),
+        ("cuaca di bandung besok gimana", "weather"),
+        ("bakal hujan nggak", "weather"),
+        ("suhu sekarang berapa", "weather"),
+        ("pause", "media"),
+        ("lagu berikutnya dong", "media"),
+        ("putar lagi", "media"),
+        ("lagu sebelumnya", "media"),
+        ("kecilkan volume", "volume"),
+        ("volume 50 persen", "volume"),
+        ("matikan suara", "volume"),
+        ("keraskan suara", "volume"),
+        ("baterai berapa", "system"),
+        ("laptop lagi dicas nggak", "system"),
+        ("pemakaian cpu berapa", "system"),
+        ("catat beli susu", "note_add"),
+        ("bacakan catatan", "note_read"),
+        ("catatanku apa saja", "note_read"),
+        ("buka catatan", "note_open"),
+    ],
+)
+def test_everyday_routes(config, launcher, utterance, intent):
+    route = route_of(config, launcher, utterance)
+    assert (route.path, route.intent) == ("rule", intent), route
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "kenapa baterai laptop cepat habis",
+        "jelaskan cuaca ekstrem",
+        "apa itu volume dalam matematika",
+        "suhu cpu laptop aman berapa",
+    ],
+)
+def test_explanations_about_skill_topics_go_to_agent(config, launcher, utterance):
+    assert route_of(config, launcher, utterance).path == "agent"
+
+
+def test_media_and_music_do_not_collide(config, launcher):
+    assert route_of(config, launcher, "putar lagi").intent == "media"
+    assert route_of(config, launcher, "putar lagu santai").intent == "music"
+    assert route_of(config, launcher, "stop").intent == "stop"  # still exits Mika
+    assert route_of(config, launcher, "cari cuaca jakarta di google").intent == "browser_search"
+
+
 def test_search_arguments(config, launcher):
     route = route_of(config, launcher, "nonton youtube tentang valorant")
     assert route.args == {"provider": "youtube_first", "query": "valorant"}

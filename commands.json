@@ -208,6 +208,19 @@
     "max_spoken_sentences": 3,
     "fast_action_replies": true
   },
+  "reminders": {
+    "missed_grace_hours": 12,
+    "snooze_minutes": 5,
+    "chime": true
+  },
+  "weather": {
+    "location": "Jakarta",
+    "country_code": "ID",
+    "timeout_seconds": 5
+  },
+  "volume": {
+    "step_percent": 10
+  },
   "web_search": {
     "providers": [
       "tavily",

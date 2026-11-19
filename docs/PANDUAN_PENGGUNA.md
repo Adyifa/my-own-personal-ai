@@ -33,6 +33,38 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
+## Skill sehari-hari
+
+Semua ini jalan cepat tanpa AI dan tanpa internet, kecuali cuaca.
+
+| Kategori | Contoh perintah |
+|---|---|
+| Jam dan tanggal | `jam berapa sekarang`, `hari ini tanggal berapa` |
+| Timer | `pasang timer 5 menit buat masak mie`, `sisa timer berapa lagi`, `batalkan timer` |
+| Pengingat | `ingatkan aku jam 7 malam minum obat`, `ingatkan aku 30 menit lagi angkat jemuran`, `besok pagi ingatkan aku meeting jam 9` |
+| Alarm | `bangunkan aku besok jam 5 pagi`, `pasang alarm jam 6 pagi` |
+| Kelola pengingat | `pengingat apa saja`, `hapus pengingat minum obat`, `tunda 10 menit` (setelah pengingat berbunyi) |
+| Cuaca | `cuaca hari ini`, `cuaca besok di bandung`, `bakal hujan nggak` |
+| Musik | `pause`, `putar lagi`, `lagu berikutnya`, `lagu sebelumnya` |
+| Volume | `kecilkan volume`, `volume 50 persen`, `matikan suara`, `nyalakan suara` |
+| Laptop | `baterai berapa`, `laptop lagi dicas nggak`, `info sistem` |
+| Catatan | `catat beli susu`, `bacakan catatan`, `buka catatan` |
+
+Kalau waktu pengingat belum disebut, Mika bertanya "Mau diingatkan kapan?" dan kamu bisa langsung menjawab tanpa "Halo Mika".
+Waktu bisa diucapkan dengan angka atau kata: `jam setengah 8 malam` (19.30), `jam 10 kurang seperempat`, `lima belas menit lagi`.
+
+Pengingat dan catatan disimpan di folder `data/` (tidak ikut Git). Pengingat yang terlewat saat laptop mati akan
+diumumkan begitu Mika menyala lagi, selama belum lewat 12 jam.
+
+Atur kota cuaca default di `commands.json`:
+
+```json
+"weather": {
+  "location": "Bandung",
+  "country_code": "ID"
+}
+```
+
 ## Cara menjalankan
 
 1. Install Python 3.10 atau lebih baru.

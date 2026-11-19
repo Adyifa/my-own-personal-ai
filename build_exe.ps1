@@ -34,6 +34,8 @@ python -m PyInstaller `
     --name MikaAssistant `
     --hidden-import settings_gui `
     --hidden-import mika.ui.settings `
+    --hidden-import psutil `
+    --hidden-import pycaw.pycaw `
     --collect-data trafilatura `
     --collect-data justext `
     --hidden-import tkinter `

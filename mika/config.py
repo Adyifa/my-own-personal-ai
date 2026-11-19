@@ -201,6 +201,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_spoken_sentences": 3,
         "fast_action_replies": True,
     },
+    "reminders": {
+        "missed_grace_hours": 12,  # reminders missed while the laptop was off are announced if not older than this
+        "snooze_minutes": 5,
+        "chime": True,
+    },
+    "weather": {
+        "location": "Jakarta",  # default city when the user does not name one
+        "country_code": "ID",  # preferred country for city lookups
+        "timeout_seconds": 5,
+    },
+    "volume": {
+        "step_percent": 10,
+    },
     "web_search": {
         "providers": ["tavily", "brave", "duckduckgo"],
         "max_results": 5,

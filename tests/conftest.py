@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 import copy
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 
 from mika.config import DEFAULT_CONFIG, apply_personality_preset
-from tests.fakes import FakeSpeaker, RecordingLauncher
+from tests.fakes import FakeSpeaker, RecordingLauncher, make_everyday
+
+WIB = timezone(timedelta(hours=7))
+NOW = datetime(2026, 11, 19, 10, 0, tzinfo=WIB)  # a Thursday, 10:00 WIB
 
 
 @pytest.fixture
 def config(tmp_path) -> dict[str, Any]:
     cfg = apply_personality_preset(copy.deepcopy(DEFAULT_CONFIG))
+    cfg["data_dir"] = str(tmp_path / "data")  # never touch the real reminders or notes
+    cfg["reminders"]["chime"] = False
     cfg["auto_discovery"]["enabled"] = False  # never scan the real Start Menu in tests
     cfg["voice"]["enabled"] = False
     cfg["files"] = {"downloads": str(tmp_path)}
@@ -33,3 +39,9 @@ def speaker() -> FakeSpeaker:
 @pytest.fixture
 def launcher(config) -> RecordingLauncher:
     return RecordingLauncher(config)
+
+
+@pytest.fixture
+def everyday(config, tmp_path):
+    """Skill hub on a fake clock (Thursday 19 Nov 2026, 10:00 WIB) with fake media, volume, battery, weather."""
+    return make_everyday(config, tmp_path, NOW)

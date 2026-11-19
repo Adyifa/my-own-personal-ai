@@ -13,9 +13,41 @@ from .audio.wake import strip_wake_prefix
 from .brain.router import Route, Router
 from .persona import CONVERSATION_REPLIES, VOICE_PERSONALITY_PRESETS
 from .skills.browser import search_url, spotify_url
+from .skills.hub import SkillHub, SkillReply, build_skill_hub
 from .skills.launcher import Launcher
 from .skills.power import execute_power_action
 from .text import clean_conversational_command, normalize, safe_print
+
+# Rule intents served by the everyday-skills hub (stage 2).
+SKILL_INTENTS: dict[str, Callable[[SkillHub, dict[str, Any]], SkillReply]] = {
+    "time_now": lambda hub, args: hub.tell_time(),
+    "date_today": lambda hub, args: hub.tell_date(),
+    "timer_set": lambda hub, args: hub.set_timer(args["text"]),
+    "timer_status": lambda hub, args: hub.timer_status(),
+    "timer_cancel": lambda hub, args: hub.cancel_timers(args["text"]),
+    "reminder_set": lambda hub, args: hub.set_reminder(args["text"]),
+    "reminder_list": lambda hub, args: hub.list_reminders(),
+    "reminder_cancel": lambda hub, args: hub.cancel_reminders(args["text"]),
+    "snooze": lambda hub, args: hub.snooze(args["text"]),
+    "weather": lambda hub, args: hub.weather(args["text"]),
+    "media": lambda hub, args: hub.media(args["action"]),
+    "volume": lambda hub, args: hub.volume_command(args["text"]),
+    "system": lambda hub, args: hub.system(args["kind"]),
+    "note_add": lambda hub, args: hub.add_note(args["text"]),
+    "note_read": lambda hub, args: hub.read_notes(),
+    "note_open": lambda hub, args: hub.open_notes(),
+}
+
+
+def _default_chime() -> None:
+    """Short two-tone beep before an announcement (Windows only; silent elsewhere)."""
+    try:
+        import winsound
+
+        winsound.Beep(988, 160)
+        winsound.Beep(1319, 220)
+    except Exception:
+        pass
 
 
 @dataclass
@@ -41,6 +73,7 @@ class Assistant:
         agent: Any = None,
         display: Any = None,
         power_runner: Callable[[str], Any] = execute_power_action,
+        hub: SkillHub | None = None,
     ):
         self.config = config
         self.speaker = speaker
@@ -50,7 +83,12 @@ class Assistant:
         self.agent = agent
         self.display = display
         self.power_runner = power_runner
+        self.hub = hub or build_skill_hub(config, open_path=self.launcher.open_path)
+        self.hub.reminders.on_due = self.announce
+        self.chime: Callable[[], None] = _default_chime if config.get("reminders", {}).get("chime", True) else (lambda: None)
         self.pending_action: PendingAction | None = None
+        self.follow_up: Callable[[str], SkillReply | None] | None = None
+        self.follow_up_until = 0.0
         self.conversation_until = 0.0
         self.last_route: Route | None = None
         self.last_reply: Any = None
@@ -74,6 +112,8 @@ class Assistant:
 
         if self.handle_pending_confirmation(command):
             return True
+        if self.handle_follow_up(command):
+            return True
 
         route = self.router.route(command)
         self.last_route = route
@@ -92,7 +132,9 @@ class Assistant:
         """Pre-scan apps and load the LLM in the background so the first command is fast."""
 
         def warm_disk_and_voice() -> None:
-            for name, step in (("Scan aplikasi", self.launcher.warm_up), ("TTS", getattr(self.speaker, "warm_up", None))):
+            weather = getattr(self.hub.weather_service, "warm_up", None)
+            steps = (("Scan aplikasi", self.launcher.warm_up), ("TTS", getattr(self.speaker, "warm_up", None)), ("Cuaca", weather))
+            for name, step in steps:
                 if not callable(step):
                     continue
                 try:
@@ -110,6 +152,45 @@ class Assistant:
         if self.agent is not None and self.config.get("llm", {}).get("warmup", True):
             # Separate thread: loading a model into VRAM can take several seconds.
             threading.Thread(target=warm_llm, name="mika-warmup-llm", daemon=True).start()
+        self.hub.reminders.start()
+
+    # Everyday skills --------------------------------------------------------------------
+
+    def deliver(self, reply: SkillReply) -> None:
+        """Speak a skill reply, run its post-speech action, show details, and arm its follow-up question."""
+        self.speaker.say(reply.text)
+        if reply.after is not None:
+            try:
+                reply.after()
+            except Exception as exc:
+                safe_print(f"[skill] Aksi gagal: {exc}")
+        if reply.detail and self.display is not None:
+            self.display.show(self.name, reply.detail)
+        if reply.follow_up is not None:
+            self.follow_up = reply.follow_up
+            self.follow_up_until = time.time() + float(self.config.get("wake", {}).get("next_command_seconds", 8)) + 4
+            self.keep_conversation_alive()  # the answer needs no wake phrase
+
+    def handle_follow_up(self, command: str) -> bool:
+        """Answer to Mika's last question ("Mau diingatkan kapan?"); unrelated speech is routed normally."""
+        handler, self.follow_up = self.follow_up, None
+        if handler is None or time.time() > self.follow_up_until:
+            return False
+        reply = handler(command)
+        if reply is None:
+            return False
+        self.deliver(reply)
+        return True
+
+    def announce(self, item: Any, late: bool) -> None:
+        """Called by the reminder thread when something is due: chime, speak, and show a notification."""
+        text = self.hub.announcement(item, late)
+        self.chime()
+        # Non-blocking: this runs on the reminder thread while the main loop may be listening.
+        speak = getattr(self.speaker, "say_async", None) or self.speaker.say
+        speak(text)
+        if self.display is not None:
+            self.display.show("Pengingat", text)
 
     # Rule path --------------------------------------------------------------------------
 
@@ -119,7 +200,9 @@ class Assistant:
         if intent == "stop":
             self.speaker.say(self.message("stop_reply", "Baik, aku berhenti dulu."))
             return False
-        if intent == "empty":
+        if intent in SKILL_INTENTS:
+            self.deliver(SKILL_INTENTS[intent](self.hub, args))
+        elif intent == "empty":
             self.speaker.say(self.message("empty_command", "Aku belum menangkap perintahnya."))
         elif intent == "help":
             self.say_help()
@@ -324,8 +407,9 @@ class Assistant:
             else ""
         )
         self.speaker.say(
-            "Contoh perintah: halo mika buka youtube, halo mika cari tutorial python di youtube, "
-            "halo mika aku mau main cs2 dong, halo mika sleep laptop, atau halo mika buka notepad. "
+            "Contoh perintah: halo mika buka youtube, pasang timer 5 menit, ingatkan aku jam 7 malam minum obat, "
+            "cuaca besok gimana, kecilkan volume, lagu berikutnya, baterai berapa, catat beli susu, "
+            "atau halo mika sleep laptop. "
             f"Website tersedia: {websites or '-'}, aplikasi: {apps or '-'}.{ai_hint}"
         )
 
@@ -339,6 +423,7 @@ class Assistant:
     def stop_conversation(self) -> None:
         """End follow-up mode and wipe the agent's short-term memory."""
         self.conversation_until = 0.0
+        self.follow_up = None
         session = getattr(self.agent, "session", None)
         if session is not None:
             session.clear()

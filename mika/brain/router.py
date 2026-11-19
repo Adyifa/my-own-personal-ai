@@ -85,6 +85,44 @@ MUSIC_REWRITES = [
     (r"^putar\s+lagu\s+yang\s+(.+)$", r"putar lagu \1 di spotify"),
     (r"^musik\s+(.+)$", r"putar musik \1 di spotify"),
 ]
+# Everyday skills (stage 2) ---------------------------------------------------------------
+_EXPLAIN_START = re.compile(r"^(kenapa|mengapa|jelaskan|apa itu|apa bedanya|apa yang dimaksud|bagaimana cara|gimana cara)\b")
+_CANCEL_WORDS = {"batalkan", "batal", "hapus", "stop", "matikan", "hentikan", "cancel", "buang"}
+_REMIND_START = re.compile(r"^(?:tolong\s+)?(?:ingatkan|ingetin|ingatin|ingetkan|bangunkan|bangunin)\b")
+_REMINDER_NOUNS = {"pengingat", "pengingatku", "reminder", "alarm"}
+_LIST_CUES = ("apa saja", "apa aja", "daftar", "lihat", "cek", "ada pengingat", "ada apa", "pengingatku", "pengingat aku", "list")
+_SNOOZE = re.compile(r"^(?:tunda|snooze)\b|^(?:ingatkan|ingetin|ingatin)\s+(?:aku\s+|saya\s+)?lagi(?:\s+(?:dalam\s+)?\S+\s+(?:menit|jam))?$")
+_TIME_QUESTION = re.compile(r"\b(?:jam|pukul) berapa\b|^sekarang jam\b")
+_DATE_QUESTION = re.compile(r"\btanggal berapa\b|\bhari apa\b|\btanggal hari ini\b|\bhari ini tanggal\b|^sekarang tanggal\b")
+_RAIN_QUESTION = re.compile(r"\b(?:bakal|akan|mau|apakah|apa)\s+hujan\b|\bhujan\s+(?:nggak|gak|ga|enggak|tidak|ngga|kah|engga)\b")
+_NOT_WEATHER = {"cpu", "laptop", "prosesor", "komputer", "processor", "gpu"}
+MEDIA_COMMANDS = {
+    "pause": ["pause", "jeda", "pause musik", "pause lagu", "pause lagunya", "pause dulu", "jeda musik", "jeda lagu",
+              "jeda dulu", "hentikan musik", "hentikan lagu", "stop musik", "stop lagu", "stop lagunya"],
+    "play": ["play", "resume", "lanjutkan musik", "lanjutkan lagu", "lanjutkan lagunya", "lanjut musik", "lanjut lagu",
+             "putar lagi", "play lagi", "play musik", "putar musiknya lagi", "nyalakan musik lagi"],
+    "next": ["next", "skip", "lagu berikutnya", "lagu selanjutnya", "lagu lain", "ganti lagu", "lewati lagu", "skip lagu",
+             "skip lagu ini", "next lagu", "lagu sesudahnya"],
+    "previous": ["previous", "prev", "lagu sebelumnya", "lagu tadi", "kembali ke lagu sebelumnya", "balik ke lagu sebelumnya"],
+}
+_MEDIA_LOOKUP = {phrase: action for action, phrases in MEDIA_COMMANDS.items() for phrase in phrases}
+_VOLUME_VERBS = re.compile(
+    r"\b(naik|naikkan|naikin|keraskan|kerasin|besarkan|besarin|gedein|tambah|tingkatkan|kencengin|turun|turunkan"
+    r"|turunin|kecilkan|kecilin|pelankan|pelanin|kurangi|rendahkan|matikan|matiin|nyalakan|nyalain|hidupkan|bisukan"
+    r"|aktifkan|bunyikan|diamkan)\b"
+)
+_BATTERY_WORDS = {"baterai", "batre", "batere", "baterei", "batrei", "battery"}
+_CHARGING = re.compile(r"\b(?:lagi |sedang )?(?:dicas|di cas|ngecas|nge cas|dicharge|charging)\b")
+_SYSTEM_PHRASES = ("info sistem", "informasi sistem", "status laptop", "status komputer", "kondisi laptop", "performa laptop",
+                   "pemakaian cpu", "penggunaan cpu", "pemakaian ram", "penggunaan ram", "sisa disk", "sisa penyimpanan",
+                   "ruang disk", "cpu", "ram", "penyimpanan")
+_NOTE_ADD = re.compile(r"^(?:tolong\s+)?(?:catatlah|catat|catet|tulis catatan|simpan catatan|bikin catatan|buat catatan|tambah catatan|tambahkan catatan)\b")
+_NOTE_READ = re.compile(
+    r"^(?:(?:bacakan|baca|bacain|lihat|cek|apa|apa saja|daftar|sebutkan)\s+)?(?:isi\s+)?catatan(?:ku| aku| saya)?"
+    r"(?:\s+(?:terakhir|terbaru|apa saja|aku|ku))?$"
+)
+_NOTE_OPEN = re.compile(r"^buka\s+(?:file\s+)?catatan(?:ku| aku| saya)?$")
+
 _EXPLICIT_PROVIDER = re.compile(r"(?:^|\s)(?:di|ke|pake|pakai|lewat|via)\s+(google|youtube|yt)(?:\s|$)")
 _FIRST_RESULT_PHRASES = ["nonton", "tonton", "buka video", "putar video", "hasil pertama"]
 
@@ -118,6 +156,7 @@ class Router:
 
         for matcher in (
             self._match_power,
+            self._match_everyday,
             self._match_music,
             self._match_file,
             self._match_search,
@@ -141,6 +180,57 @@ class Router:
         for action, phrases in POWER_PHRASES:
             if any(contains_phrase(command, phrase) for phrase in phrases):
                 return Route("rule", "power", {"action": action, "label": POWER_LABELS[action]})
+        return None
+
+    def _match_everyday(self, command: str, tokens: list[str]) -> Route | None:
+        """Timers, reminders, time, weather, media, volume, battery, notes; "kenapa ..." questions go to the LLM."""
+        if _EXPLAIN_START.search(command):
+            return None
+        words = set(tokens)
+
+        if {"timer", "countdown"} & words or "hitung mundur" in command:
+            if _CANCEL_WORDS & words:
+                return Route("rule", "timer_cancel", {"text": command})
+            if re.search(r"\b(sisa|berapa lagi|tinggal berapa|masih berapa|cek|status|berapa)\b", command):
+                return Route("rule", "timer_status")
+            return Route("rule", "timer_set", {"text": command})
+
+        if _SNOOZE.search(command):
+            return Route("rule", "snooze", {"text": command})
+        remind_verb = bool(_REMIND_START.search(command))
+        reminder_noun = bool(_REMINDER_NOUNS & words)
+        if remind_verb or reminder_noun:
+            if reminder_noun and _CANCEL_WORDS & words:
+                return Route("rule", "reminder_cancel", {"text": command})
+            if reminder_noun and not remind_verb and (command in _REMINDER_NOUNS or any(c in command for c in _LIST_CUES)):
+                return Route("rule", "reminder_list")
+            return Route("rule", "reminder_set", {"text": command})
+
+        if _TIME_QUESTION.search(command):
+            return Route("rule", "time_now")
+        if _DATE_QUESTION.search(command):
+            return Route("rule", "date_today")
+
+        weather_word = bool({"cuaca", "prakiraan"} & words) or ("suhu" in words and not _NOT_WEATHER & words)
+        if (weather_word or _RAIN_QUESTION.search(command)) and not explicit_provider(command):
+            return Route("rule", "weather", {"text": command})
+
+        if command in _MEDIA_LOOKUP:
+            return Route("rule", "media", {"action": _MEDIA_LOOKUP[command]})
+        if "volume" in words or command in {"mute", "unmute", "bisukan"} or ("suara" in words and _VOLUME_VERBS.search(command)):
+            return Route("rule", "volume", {"text": command})
+
+        if len(tokens) <= 6 and (_BATTERY_WORDS & words or _CHARGING.search(command)):
+            return Route("rule", "system", {"kind": "battery"})
+        if len(tokens) <= 6 and "suhu" not in words and any(contains_phrase(command, phrase) for phrase in _SYSTEM_PHRASES):
+            return Route("rule", "system", {"kind": "system"})
+
+        if _NOTE_OPEN.search(command):
+            return Route("rule", "note_open")
+        if _NOTE_ADD.search(command):
+            return Route("rule", "note_add", {"text": command})
+        if _NOTE_READ.search(command):
+            return Route("rule", "note_read")
         return None
 
     def _match_music(self, command: str, tokens: list[str]) -> Route | None:

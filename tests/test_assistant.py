@@ -24,7 +24,7 @@ def power_calls():
     return []
 
 
-def make(config, speaker, launcher, llm=None, *, searcher=None, power_calls=None, display=None):
+def make(config, speaker, launcher, llm=None, *, searcher=None, power_calls=None, display=None, hub=None):
     return build_assistant(
         config,
         speaker=speaker,
@@ -33,6 +33,7 @@ def make(config, speaker, launcher, llm=None, *, searcher=None, power_calls=None
         searcher=searcher or FakeSearcher(),
         launcher=launcher,
         power_runner=power_calls.append if power_calls is not None else _refuse_power,
+        hub=hub,
     )
 
 
@@ -167,3 +168,78 @@ def test_legacy_entry_point_exports():
 
     for name in ("Assistant", "Speaker", "ensure_config", "listen_once", "CONFIG_PATH", "DEFAULT_CONFIG", "main"):
         assert hasattr(legacy, name)
+
+
+# Everyday skills end to end (stage 2) ------------------------------------------------------
+
+
+def test_timer_is_instant_and_offline(config, speaker, launcher, everyday):
+    llm = ScriptedLLM()
+    assistant = make(config, speaker, launcher, llm, hub=everyday.hub)
+    assistant.handle("halo mika pasang timer lima menit")
+    assert speaker.said == ["Oke, timer 5 menit mulai sekarang."]
+    assert len(everyday.hub.reminders.upcoming(("timer",))) == 1
+    assert llm.calls == []
+
+
+def test_follow_up_question_needs_no_wake_word(config, speaker, launcher, everyday):
+    assistant = make(config, speaker, launcher, hub=everyday.hub)
+    assistant.handle("halo mika ingatkan aku minum obat")
+    assert speaker.said[-1] == "Mau diingatkan kapan?"
+    assert assistant.conversation_is_active()  # tray listens without "Halo Mika"
+    assistant.handle("jam sembilan malam")
+    assert speaker.said[-1] == "Oke, Mika ingatkan minum obat jam 9 malam."
+
+
+def test_unrelated_answer_cancels_the_follow_up(config, speaker, launcher, everyday):
+    llm = ScriptedLLM(text("Jam 9 malam kenapa?"))
+    assistant = make(config, speaker, launcher, llm, hub=everyday.hub)
+    assistant.handle("ingatkan aku minum obat")
+    assistant.handle("buka youtube")
+    assert launcher.opened_urls == ["https://www.youtube.com"]
+    assistant.handle("jam 9 malam")  # the question was dropped, so this goes to the LLM instead
+    assert everyday.hub.reminders.upcoming() == []
+    assert speaker.said[-1] == "Jam 9 malam kenapa?"
+
+
+def test_due_timer_is_announced(config, speaker, launcher, everyday):
+    display = RecordingDisplay()
+    assistant = make(config, speaker, launcher, hub=everyday.hub, display=display)
+    assistant.handle("timer 3 menit buat teh")
+    everyday.clock.advance(minutes=3)
+    everyday.hub.reminders.check()
+    assert speaker.said[-1] == "Timer teh sudah selesai!"
+    assert display.shown[-1] == ("Pengingat", "Timer teh sudah selesai!")
+    assistant.handle("tunda 2 menit")
+    assert speaker.said[-1] == "Oke, Mika ingatkan lagi 2 menit lagi."
+
+
+def test_mute_runs_after_speaking(config, speaker, launcher, everyday):
+    assistant = make(config, speaker, launcher, hub=everyday.hub)
+    assistant.handle("matikan suara")
+    assert speaker.said[-1] == "Oke, suara Mika bisukan." and everyday.endpoint.muted == 1
+
+
+def test_weather_details_go_to_screen(config, speaker, launcher, everyday):
+    display = RecordingDisplay()
+    assistant = make(config, speaker, launcher, hub=everyday.hub, display=display)
+    assistant.handle("halo mika cuaca besok di bandung")
+    assert speaker.said[-1].startswith("Besok di Bandung diperkirakan badai petir")
+    assert "Cuaca Bandung, Jawa Barat" in display.shown[-1][1]
+
+
+def test_agent_can_set_reminders_with_our_time_parser(config, speaker, launcher, everyday):
+    llm = ScriptedLLM(tool("reminders", action="set", when="30 menit lagi", message="angkat jemuran"))
+    assistant = make(config, speaker, launcher, llm, hub=everyday.hub)
+    assistant.handle("eh nanti setengah jam lagi kasih tahu aku buat angkat jemuran ya")
+    assert speaker.said[-1] == "Oke, 30 menit lagi Mika ingatkan angkat jemuran."
+    assert llm.calls and len(llm.calls) == 1  # skill reply is spoken directly, no 2nd LLM call
+    assert everyday.hub.reminders.upcoming()[0].message == "angkat jemuran"
+
+
+def test_agent_bad_time_is_reported_back_to_the_model(config, speaker, launcher, everyday):
+    llm = ScriptedLLM(tool("reminders", action="set", when="kapan-kapan"), text("Mau diingatkan jam berapa?"))
+    assistant = make(config, speaker, launcher, llm, hub=everyday.hub)
+    assistant.handle("tolong kabari aku kapan-kapan buat olahraga")
+    assert len(llm.calls) == 2
+    assert speaker.said[-1] == "Mau diingatkan jam berapa?"

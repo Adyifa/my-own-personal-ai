@@ -10,3 +10,6 @@ pygame==2.6.1
 httpx>=0.27
 ddgs>=9.0
 trafilatura>=2.0
+# Everyday skills: battery/system info and exact volume control
+psutil>=5.9
+pycaw>=20240316

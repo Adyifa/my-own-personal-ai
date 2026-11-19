@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..skills.browser import search_url, spotify_url
+from ..skills.hub import SkillHub, SkillReply
 from ..skills.launcher import Launcher
 from ..skills.power import POWER_LABELS
 from ..skills.web_search import SearchResult, WebSearcher
@@ -30,8 +31,9 @@ def build_default_tools(
     message: MessageFn,
     config: dict[str, Any],
     power_runner: Callable[[str], Any],
+    hub: SkillHub | None = None,
 ) -> list[ToolSpec]:
-    """Build the tool list bound to this assistant's launcher, web searcher, and session."""
+    """Build the tool list bound to this assistant's launcher, web searcher, session, and everyday skills."""
 
     def open_app(name: str) -> ToolResult:
         """Resolve a spoken app/game name (exact, partial, or fuzzy) and launch it."""
@@ -186,7 +188,7 @@ def build_default_tools(
             name="web_search",
             description=(
                 "Search the internet and read the top pages. Use for news, current events, prices, schedules, "
-                "weather, sports, or any fact you are not sure about. Returns numbered sources to summarise and cite."
+                "sports, or any fact you are not sure about. Returns numbered sources to summarise and cite."
             ),
             parameters=_params(query=("string", "Search query, in the user's language.")),
             handler=web_search,
@@ -236,6 +238,140 @@ def build_default_tools(
             risk="confirm",
             terminal=True,
             confirm_label=lambda args: POWER_LABELS.get(str(args.get("action")), str(args.get("action"))),
+        ),
+        *(build_everyday_tools(hub) if hub is not None else []),
+    ]
+
+
+def _from_skill(reply: SkillReply) -> ToolResult:
+    """Skill replies become terminal tool results: the hub's sentence is spoken without a 2nd LLM call."""
+    if reply.after is not None:
+        reply.after()
+    data = {"jawaban": reply.text, **reply.data}
+    if not reply.ok and "error" not in data:
+        data["error"] = reply.text
+    return ToolResult(reply.ok, data, speak=reply.text)
+
+
+def build_everyday_tools(hub: SkillHub) -> list[ToolSpec]:
+    """Five grouped tools (one per domain, with an `action` enum) to keep the schema small for a 4k context."""
+
+    def reminders(action: str, when: str = "", message: str = "", kind: str = "reminder") -> ToolResult:
+        """Set a timer/reminder/alarm (time parsed by our Indonesian parser), list them, or cancel one."""
+        if action == "list":
+            return _from_skill(hub.list_reminders())
+        if action == "cancel":
+            text = f"{'timer' if kind == 'timer' else 'pengingat'} {message}".strip()
+            return _from_skill(hub.cancel_timers(text) if kind == "timer" else hub.cancel_reminders(text))
+        if not when:
+            return ToolResult(False, {"error": "Isi 'when', misalnya '30 menit lagi' atau 'besok jam 7 pagi'."})
+        if kind == "timer":
+            return _from_skill(hub.set_timer(f"timer {when} {message}"))
+        return _from_skill(hub.set_reminder_parts(when, message, kind))
+
+    def get_weather(location: str = "", day: str = "today") -> ToolResult:
+        """Forecast for a city (default from config) today, tomorrow, or the day after."""
+        offset = {"today": 0, "tomorrow": 1, "day_after_tomorrow": 2}.get(day, 0)
+        return _from_skill(hub.weather_for(location or None, offset))
+
+    def media_control(action: str, level: int | None = None) -> ToolResult:
+        """Media keys and system volume."""
+        if action in ("pause", "play", "next", "previous"):
+            return _from_skill(hub.media(action))
+        return _from_skill(hub.volume_action(action, level))
+
+    def system_status(kind: str = "battery") -> ToolResult:
+        """Battery, or CPU/RAM/disk usage."""
+        return _from_skill(hub.system(kind))
+
+    def notes(action: str, text: str = "") -> ToolResult:
+        """Add a quick note or read the latest ones."""
+        if action == "add":
+            if not text:
+                return ToolResult(False, {"error": "Isi 'text' dengan isi catatan."})
+            return _from_skill(hub.add_note(f"catat {text}"))
+        return _from_skill(hub.read_notes())
+
+    return [
+        ToolSpec(
+            name="reminders",
+            description=(
+                "Timers, reminders, and alarms. action=set needs `when` in natural Indonesian "
+                "('30 menit lagi', 'jam 7 malam', 'besok jam 6 pagi'); for kind=timer, `when` is a length ('5 menit')."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["set", "list", "cancel"]},
+                    "when": {"type": "string", "description": "When, in the user's words."},
+                    "message": {"type": "string", "description": "What to be reminded about, or the timer label."},
+                    "kind": {"type": "string", "enum": ["reminder", "timer", "alarm"]},
+                },
+                "required": ["action"],
+            },
+            handler=reminders,
+            risk="action",
+            terminal=True,
+        ),
+        ToolSpec(
+            name="get_weather",
+            description="Weather forecast. Leave location empty for the user's home city.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "location": {"type": "string", "description": "City name, optional."},
+                    "day": {"type": "string", "enum": ["today", "tomorrow", "day_after_tomorrow"]},
+                },
+                "required": [],
+            },
+            handler=get_weather,
+            risk="safe",
+            terminal=True,
+        ),
+        ToolSpec(
+            name="media_control",
+            description="Control music/video playback and the laptop's volume.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["pause", "play", "next", "previous", "volume_up", "volume_down", "set_volume", "mute", "unmute"],
+                    },
+                    "level": {"type": "integer", "description": "Volume percent for set_volume, or step for up/down."},
+                },
+                "required": ["action"],
+            },
+            handler=media_control,
+            risk="action",
+            terminal=True,
+        ),
+        ToolSpec(
+            name="system_status",
+            description="Battery level and charging state, or CPU/RAM/disk usage of this laptop.",
+            parameters={
+                "type": "object",
+                "properties": {"kind": {"type": "string", "enum": ["battery", "system"]}},
+                "required": [],
+            },
+            handler=system_status,
+            risk="safe",
+            terminal=True,
+        ),
+        ToolSpec(
+            name="notes",
+            description="Save a quick note for the user, or read their latest notes.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["add", "read"]},
+                    "text": {"type": "string", "description": "The note, for action=add."},
+                },
+                "required": ["action"],
+            },
+            handler=notes,
+            risk="action",
+            terminal=True,
         ),
     ]
 
