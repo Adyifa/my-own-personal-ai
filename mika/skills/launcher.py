@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import json
 import os
 import re
 import subprocess
@@ -18,6 +19,8 @@ from ..text import normalize, strip_command_words
 
 @dataclass
 class LaunchMatch:
+    """A resolved launch target and which catalog it came from."""
+
     name: str
     target: str
     kind: str  # "apps" | "games" | "websites"
@@ -26,8 +29,20 @@ class LaunchMatch:
 _SKIP_ALIAS_PREFIXES = ("uninstall", "hapus instalasi", "remove", "readme", "help")
 _NAME_FILLER = re.compile(r"^(aplikasi|app|program|game|website|situs|web)\s+")
 
+# Indonesian words and common abbreviations for apps whose Start Menu names are English.
+# Added only when the app itself was discovered, so they never point at something missing.
+APP_SYNONYMS = {
+    "pengaturan": "settings", "setelan": "settings", "setting": "settings",
+    "kamera": "camera", "foto": "photos", "galeri": "photos", "kalender": "calendar",
+    "wa": "whatsapp", "vs code": "visual studio code", "vscode": "visual studio code",
+    "store": "microsoft store", "explorer": "file explorer", "file manager": "file explorer",
+    "penjelajah file": "file explorer", "perekam suara": "sound recorder", "cmd": "command prompt",
+    "terminal": "windows terminal", "pengelola tugas": "task manager",
+}
 
-def _default_start_file(path: Path) -> None:
+
+def _default_start_file(path: Path | str) -> None:
+    """ShellExecute: opens files, folders, and shell: targets exactly like a double-click."""
     os.startfile(path)  # type: ignore[attr-defined]
 
 
@@ -35,7 +50,42 @@ def _default_run_command(command: str) -> None:
     subprocess.Popen(command, shell=True)
 
 
+def _powershell_start_apps() -> str:
+    """JSON of Get-StartApps: every Start Menu entry, including Microsoft Store apps that have no .lnk file."""
+    script = (
+        "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+        "Get-StartApps | Select-Object Name, AppID | ConvertTo-Json -Compress"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True,
+        timeout=20,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    return result.stdout.decode("utf-8", errors="replace")
+
+
+def scan_start_apps(runner: Callable[[], str] = _powershell_start_apps) -> dict[str, str]:
+    """name → "shell:AppsFolder\\<AppID>", the same target the Start Menu itself launches."""
+    try:
+        rows = json.loads((runner() or "[]").lstrip("﻿"))  # UTF-8 console output may start with a BOM
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return {}
+    if isinstance(rows, dict):
+        rows = [rows]  # ConvertTo-Json returns an object, not a list, for a single app
+    apps: dict[str, str] = {}
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        name, app_id = normalize(str(row.get("Name", ""))), str(row.get("AppID", "")).strip()
+        if name and app_id:
+            apps.setdefault(name, f"shell:AppsFolder\\{app_id}")
+    return apps
+
+
 class Launcher:
+    """App, game, website, and file catalog plus the side effects of opening them (injectable for tests)."""
+
     def __init__(
         self,
         config: dict[str, Any],
@@ -43,14 +93,18 @@ class Launcher:
         open_url: Callable[[str], Any] | None = None,
         start_file: Callable[[Path], Any] | None = None,
         run_command: Callable[[str], Any] | None = None,
+        start_apps_scanner: Callable[[], dict[str, str]] = scan_start_apps,
     ):
         self.config = config
         self._open_url = open_url or webbrowser.open
         self._start_file = start_file or _default_start_file
         self._run_command = run_command or _default_run_command
+        self._scan_start_apps = start_apps_scanner
         self._discovered_apps: dict[str, str] | None = None
+        self._discovered_store_apps: dict[str, str] | None = None
         self._discovered_games: dict[str, str] | None = None
         self._lock = threading.Lock()
+        self._store_lock = threading.Lock()  # the PowerShell scan is the slowest; it must not hold up games
 
     # Catalog --------------------------------------------------------------------------
 
@@ -61,8 +115,14 @@ class Launcher:
         return dict(self.config.get("files", {}))
 
     def apps(self) -> dict[str, str]:
-        merged = dict(self._apps_discovered())
+        """Store apps, then shortcuts (they win on equal names), the user's aliases, and synonyms for apps that exist."""
+        merged = dict(self._store_apps_discovered())
+        merged.update(self._apps_discovered())
         merged.update(self.config.get("apps", {}))
+        by_name = {normalize(alias): target for alias, target in merged.items()}
+        for synonym, canonical in APP_SYNONYMS.items():
+            if synonym not in by_name and canonical in by_name:
+                merged[synonym] = by_name[canonical]
         return merged
 
     def games(self) -> dict[str, str]:
@@ -71,9 +131,10 @@ class Launcher:
         return merged
 
     def warm_up(self) -> None:
-        """Scan Start Menu/Steam ahead of time so the first "buka X" is not slowed by disk I/O."""
+        """Scan Start Menu, Steam, and Store apps ahead of time so the first "buka X" waits for nothing."""
         self._apps_discovered()
         self._games_discovered()
+        self._store_apps_discovered()
 
     def _apps_discovered(self) -> dict[str, str]:
         with self._lock:
@@ -87,6 +148,15 @@ class Launcher:
                         apps.update(scan_shortcuts(desktop_paths()))
                 self._discovered_apps = apps
             return self._discovered_apps
+
+    def _store_apps_discovered(self) -> dict[str, str]:
+        """Microsoft Store apps (WhatsApp, Spotify, Settings, Camera...) have no .lnk file, so ask Windows for them."""
+        with self._store_lock:
+            if self._discovered_store_apps is None:
+                discovery = self.config.get("auto_discovery", {})
+                enabled = discovery.get("enabled", True) and discovery.get("scan_store_apps", True)
+                self._discovered_store_apps = self._scan_start_apps() if enabled else {}
+            return self._discovered_store_apps
 
     def _games_discovered(self) -> dict[str, str]:
         with self._lock:
@@ -104,7 +174,11 @@ class Launcher:
         self._open_url(url)
 
     def launch(self, target: str) -> None:
+        """Open a URL/URI, a shell: target (Store apps), a file or shortcut, or run a command from the user's config."""
         expanded = os.path.expandvars(target)
+        if expanded.lower().startswith("shell:"):
+            self._start_file(expanded)  # shell:AppsFolder\<AppID> opens a Store app like the Start Menu does
+            return
         if re.match(r"^[a-z][a-z0-9+.-]*://", expanded, flags=re.IGNORECASE):
             self._open_url(expanded)
             return

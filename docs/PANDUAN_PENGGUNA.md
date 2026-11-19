@@ -308,12 +308,20 @@ Setelah menyimpan perubahan, klik kanan tray Mika lalu pilih `Reload config`.
 
 ## Auto-discovery aplikasi dan game
 
-Mika otomatis scan shortcut di Start Menu/Desktop dan mencoba membaca Steam library. Jadi banyak aplikasi bisa langsung dibuka, misalnya:
+Mika otomatis scan shortcut di Start Menu/Desktop, aplikasi Microsoft Store (lewat `Get-StartApps`, misalnya WhatsApp, Spotify, Settings, Camera, Netflix), dan mencoba membaca Steam library. Jadi semua aplikasi yang muncul di Start Menu bisa langsung dibuka tanpa klik atau cari, misalnya:
 
 ```text
 halo mika buka file explorer
+halo mika buka whatsapp
+halo mika buka spotify
 halo mika buka osu
 ```
+
+Beberapa sebutan Indonesia dan singkatan juga dikenali, asal aplikasinya terpasang: `pengaturan`/`setelan` (Settings), `kamera`, `foto`/`galeri` (Photos), `wa` (WhatsApp), `vs code`, `store` (Microsoft Store), `pengelola tugas` (Task Manager).
+
+`buka spotify` membuka aplikasi Spotify (atau web player kalau aplikasinya tidak ada), sedangkan `putar lagu X di spotify` tetap mencari lagu.
+
+Scan aplikasi Store berjalan di belakang saat Mika start (sekitar 1 detik). Matikan dengan `"scan_store_apps": false` di bagian `auto_discovery` pada `commands.json` kalau tidak dibutuhkan.
 
 Kalau aplikasi/game tidak ketemu, tambahkan manual lewat Settings atau `commands.json`.
 

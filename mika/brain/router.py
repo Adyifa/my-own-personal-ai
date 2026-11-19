@@ -330,9 +330,19 @@ class Router:
                 query = song_query
                 break
         query = clean_music_query(query)
+        if query == "spotify":
+            return self._open_spotify()  # "buka spotify" opens Spotify itself, not a search for the word "spotify"
         if not query:
             return Route("rule", "ask_music")
         return Route("rule", "music", {"query": query})
+
+    def _open_spotify(self) -> Route:
+        """The installed Spotify app (Store or desktop), else a "spotify" website alias, else the web player."""
+        for intent, aliases in (("open_app", self.catalog.apps()), ("open_website", self.catalog.websites())):
+            for alias, value in aliases.items():
+                if normalize(alias) == "spotify":
+                    return _named_route(intent, alias, value)
+        return Route("rule", "open_website", {"name": "spotify", "url": "https://open.spotify.com", "kind": "url"})
 
     def _match_file(self, command: str, tokens: list[str]) -> Route | None:
         """"buka/cari file|folder|dokumen X" → local file search."""
@@ -368,25 +378,41 @@ class Router:
         target = strip_command_words(command)
         game_target = strip_command_words(re.sub(r"^(main|mainkan|play|game)\s+", "", command))
         has_open_verb = tokens[0] in OPEN_VERBS
+        sources = {
+            "open_website": self.catalog.websites,
+            "open_game": self.catalog.games,
+            "open_app": self.catalog.apps,
+            "open_file_alias": self.catalog.file_aliases,
+        }
+        loaded: dict[str, dict[str, str]] = {}
+
+        def aliases_of(intent: str) -> dict[str, str]:
+            # Read on first use: "buka youtube" matches a website without waiting for app discovery to finish.
+            if intent not in loaded:
+                loaded[intent] = sources[intent]()
+            return loaded[intent]
+
         catalogs = [
-            ("open_website", self.catalog.websites(), has_open_verb, target),
-            ("open_game", self.catalog.games(), bool(GAME_VERBS & set(tokens)), game_target),
-            ("open_app", self.catalog.apps(), has_open_verb, target),
-            ("open_file_alias", self.catalog.file_aliases(), has_open_verb, target),
+            ("open_website", has_open_verb, target),
+            ("open_game", bool(GAME_VERBS & set(tokens)), game_target),
+            ("open_app", has_open_verb, target),
+            ("open_file_alias", has_open_verb, target),
         ]
 
         # 1. The whole target is an alias: works with or without a verb ("youtube", "main cs2").
-        for intent, aliases, _, wanted in catalogs:
-            for alias, value in aliases.items():
-                if wanted and normalize(alias) == wanted:
+        for intent, _, wanted in catalogs:
+            if not wanted:
+                continue
+            for alias, value in aliases_of(intent).items():
+                if normalize(alias) == wanted:
                     return _named_route(intent, alias, value)
 
         # 2. With a verb, a whole-word alias inside the command; the longest alias wins.
         best: tuple[int, str, str, str] | None = None
-        for intent, aliases, verb_ok, _ in catalogs:
+        for intent, verb_ok, _ in catalogs:
             if not verb_ok:
                 continue
-            for alias, value in aliases.items():
+            for alias, value in aliases_of(intent).items():
                 alias_norm = normalize(alias)
                 if alias_norm and contains_phrase(command, alias_norm) and (best is None or len(alias_norm) > best[0]):
                     best = (len(alias_norm), intent, alias, value)
@@ -405,7 +431,7 @@ class Router:
             target_tokens = set(target.split())
             candidates = [
                 (len(normalize(alias)), alias, value)
-                for alias, value in self.catalog.apps().items()
+                for alias, value in aliases_of("open_app").items()
                 if target_tokens <= set(normalize(alias).split())
                 and not normalize(alias).startswith(_SKIP_ALIAS_PREFIXES)
             ]

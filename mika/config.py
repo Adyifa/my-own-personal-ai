@@ -123,6 +123,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "scan_start_menu": True,
         "scan_desktop": True,
         "scan_steam": True,
+        "scan_store_apps": True,  # Microsoft Store apps via Get-StartApps (WhatsApp, Spotify, Settings, ...)
     },
     "games": {
         "counter strike": "steam://rungameid/730",

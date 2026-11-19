@@ -43,16 +43,24 @@ class FakeSpeaker:
 class RecordingLauncher(Launcher):
     """Real lookup logic, recorded side effects."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any], store_apps: dict[str, str] | None = None):
         self.opened_urls: list[str] = []
         self.started_files: list[Path] = []
         self.commands: list[str] = []
+        self.store_scans = 0
+        self._store_apps = dict(store_apps or {})
         super().__init__(
             config,
             open_url=self.opened_urls.append,
             start_file=self.started_files.append,
             run_command=self.commands.append,
+            start_apps_scanner=self._fake_store_scan,
         )
+
+    def _fake_store_scan(self) -> dict[str, str]:
+        """Stands in for Get-StartApps; counts calls so tests can check the scan is cached and lazy."""
+        self.store_scans += 1
+        return dict(self._store_apps)
 
     @property
     def actions(self) -> list[Any]:

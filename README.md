@@ -122,6 +122,7 @@ Problems found while testing on the real laptop, and fixed:
 - On the GPU, Whisper loaded fine but crashed on its first sentence: the CUDA library (`cublas64_12.dll`) is only loaded at the first decode. Mika now runs a test decode when loading on the GPU and moves to the CPU if it fails (verified on this laptop). Whisper also sometimes writes the wake phrase as one word ("Halomika"), which is now recognized.
 - A test written for stage 4 showed that the prompt-injection guard did not yet cover web search results; it does now.
 - Since stage 1, a filler line ("Bentar, Mika cariin filenya.") had silently suppressed the confirmation of the action that followed; found by a stage 4 test and fixed.
+- Microsoft Store apps (WhatsApp, Spotify, Settings, Camera: 163 entries on this laptop) have no shortcut file, so the Start Menu scan missed them, and "buka spotify" searched Spotify for the word "spotify". Mika now asks Windows for the full Start list (`Get-StartApps`, about 1.2 s in the background at startup) and opens Store apps the way the Start Menu does; Indonesian names and abbreviations ("pengaturan", "kamera", "wa", "vs code") work when the app is installed. Opening Calculator this way was verified on this laptop.
 
 ### Code tour
 
@@ -325,6 +326,7 @@ Masalah yang ditemukan saat diuji di laptop sungguhan, dan sudah diperbaiki:
 - Di GPU, Whisper berhasil dimuat tapi crash di kalimat pertama: library CUDA (`cublas64_12.dll`) baru dimuat saat transkripsi pertama. Sekarang Mika melakukan transkripsi uji saat memuat di GPU dan pindah ke CPU kalau gagal (sudah dicek di laptop ini). Whisper juga kadang menulis kata panggil dempet ("Halomika"), yang sekarang dikenali.
 - Test yang ditulis untuk tahap 4 menunjukkan pengaman prompt injection belum mencakup hasil pencarian web; sekarang sudah.
 - Sejak tahap 1, kalimat pengisi ("Bentar, Mika cariin filenya.") diam-diam membuat konfirmasi aksi berikutnya tidak diucapkan; ditemukan oleh test tahap 4 dan sudah diperbaiki.
+- Aplikasi Microsoft Store (WhatsApp, Spotify, Settings, Camera: 163 entri di laptop ini) tidak punya file shortcut, jadi scan Start Menu melewatkannya, dan "buka spotify" malah mencari kata "spotify" di Spotify. Sekarang Mika meminta daftar Start lengkap dari Windows (`Get-StartApps`, sekitar 1,2 detik di belakang saat startup) dan membuka aplikasi Store dengan cara yang sama seperti Start Menu; sebutan Indonesia dan singkatan ("pengaturan", "kamera", "wa", "vs code") ikut dikenali kalau aplikasinya terpasang. Membuka Kalkulator dengan cara ini sudah dicek di laptop ini.
 
 ### Tur kode
 

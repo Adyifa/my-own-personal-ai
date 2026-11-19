@@ -130,7 +130,8 @@
     "enabled": true,
     "scan_start_menu": true,
     "scan_desktop": true,
-    "scan_steam": true
+    "scan_steam": true,
+    "scan_store_apps": true
   },
   "games": {
     "counter strike": "steam://rungameid/730",
