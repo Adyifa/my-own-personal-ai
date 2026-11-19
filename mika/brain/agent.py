@@ -34,7 +34,9 @@ class AgentReply:
     provider: str = ""
     pending_confirmation: bool = False
     first_token_seconds: float | None = None
+    first_token_at: float | None = None  # absolute clock time, for end-of-speech latency
     llm_calls: int = 0
+    interrupted: bool = False  # the user talked over Mika (barge-in)
 
     @property
     def needs_display(self) -> bool:
@@ -45,8 +47,9 @@ class AgentReply:
 class _SpokenStream:
     """Glue between raw LLM deltas and the speaker for one turn."""
 
-    def __init__(self, speak: Callable[[str], None], max_sentences: int):
+    def __init__(self, speak: Callable[[str], None], max_sentences: int, should_stop: Callable[[], bool] = lambda: False):
         self._speak = speak
+        self._should_stop = should_stop
         self._tags = HiddenTagFilter()
         self.segmenter = SpeechSegmenter(max_sentences)
         self.spoken: list[str] = []
@@ -83,9 +86,9 @@ class _SpokenStream:
             self.say(sentence)
 
     def say(self, text: str) -> None:
-        """Clean one sentence for TTS and queue it (non-blocking)."""
+        """Clean one sentence for TTS and queue it (non-blocking); silent once the user interrupted."""
         cleaned = clean_for_speech(text)
-        if not cleaned:
+        if not cleaned or self._should_stop():
             return
         self.spoken.append(cleaned)
         self.step_spoke = True
@@ -125,10 +128,12 @@ class Agent:
         if callable(warmup):
             warmup()
 
-    def respond(self, user_text: str) -> AgentReply:
-        """Answer one turn; raises LLMError only if nothing was said or done, so the caller can fall back offline."""
+    def respond(self, user_text: str, should_stop: Callable[[], bool] | None = None) -> AgentReply:
+        """Answer one turn; raises LLMError only if nothing was said or done, so the caller can fall back offline.
+        `should_stop` is checked per token: on barge-in the stream is closed so the model stops generating."""
+        stop = should_stop or (lambda: False)
         started = self._clock()
-        out = _SpokenStream(self._speak, self.max_sentences)
+        out = _SpokenStream(self._speak, self.max_sentences, stop)
         reply = AgentReply(spoken=out.spoken)
         schemas = self.tools.schemas()
         messages = [
@@ -138,22 +143,30 @@ class Agent:
         ]
 
         for step in range(self.max_steps):
+            if stop():
+                reply.interrupted = True
+                break
             out.new_step()
             offer_tools = bool(schemas) and step < self.max_steps - 1  # last step: no tools, so it must answer
             text_parts: list[str] = []
             calls: list[ToolCall] = []
             reply.llm_calls += 1
+            stream = self.llm.stream_chat(
+                messages,
+                schemas if offer_tools else None,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
             try:
-                for event in self.llm.stream_chat(
-                    messages,
-                    schemas if offer_tools else None,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                ):
+                for event in stream:
+                    if stop():
+                        reply.interrupted = True
+                        break
                     reply.provider = event.provider or reply.provider
                     if event.kind == "text":
                         if reply.first_token_seconds is None:
-                            reply.first_token_seconds = self._clock() - started
+                            reply.first_token_at = self._clock()
+                            reply.first_token_seconds = reply.first_token_at - started
                         text_parts.append(out.feed(event.text))
                     elif event.kind == "tool_call" and event.tool_call is not None:
                         calls.append(event.tool_call)
@@ -164,7 +177,13 @@ class Agent:
                 out.end_step()
                 out.say(MID_TURN_APOLOGY)
                 break
+            finally:
+                close = getattr(stream, "close", None)
+                if callable(close):
+                    close()  # closes the HTTP stream, so Ollama stops generating tokens nobody will hear
 
+            if reply.interrupted:
+                break
             out.end_step()
             if not calls:
                 break
@@ -172,7 +191,7 @@ class Agent:
             if self._run_tools(calls, messages, out, reply, user_text):
                 break
 
-        if not out.spoken:
+        if not out.spoken and not reply.interrupted:
             out.say(EMPTY_ANSWER)
 
         reply.full_text = DETAIL_RE.sub("\n", "".join(out.visible)).strip()

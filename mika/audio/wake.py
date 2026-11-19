@@ -41,9 +41,16 @@ def strip_wake_prefix(command: str, wake_config: dict[str, Any]) -> tuple[bool, 
     return False, normalized_command
 
 
+# Whisper sometimes writes the wake phrase as one word ("Halomika").
+JOINED_WAKE = {hello + name for hello in HELLO_LIKE for name in NAME_LIKE}
+
+
 def strip_fuzzy_wake(command: str) -> str | None:
+    """Wake phrase from common mis-hearings: "hai mikha", "halo nika", or joined "halomika"."""
     tokens = command.split()
     for index, token in enumerate(tokens):
+        if token in JOINED_WAKE:
+            return " ".join(tokens[index + 1 :]).strip()
         if token not in HELLO_LIKE:
             continue
         if index + 1 < len(tokens) and tokens[index + 1] in NAME_LIKE:

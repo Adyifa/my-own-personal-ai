@@ -7,13 +7,23 @@ from typing import Any
 
 from .app import build_assistant
 from .assistant import Assistant
-from .audio.stt import listen_once
+from .audio.stt import build_stt
+from .audio.voice import VoiceInput
 from .config import ensure_config
 from .text import safe_print
 from .ui.display import ConsoleDisplay
+from .voice_loop import VoiceLoop
 
 
 def run_voice_loop(assistant: Assistant, config: dict[str, Any]) -> None:
+    """Console voice mode: always listening, no wake phrase needed; falls back to typing if the mic fails."""
+    voice = VoiceInput(config, assistant.speaker, build_stt(config), interrupt=assistant.interrupt)
+    try:
+        voice.start()
+    except Exception as exc:
+        safe_print(f"[mic] {exc}. Pindah ke mode ketik.")
+        run_text_loop(assistant)
+        return
     assistant.speaker.say(
         assistant.message(
             "startup_reply",
@@ -21,17 +31,14 @@ def run_voice_loop(assistant: Assistant, config: dict[str, Any]) -> None:
             name=assistant.name,
         )
     )
-    while True:
-        command = listen_once(config, assistant.speaker)
-        if command is None:
-            fallback = input("Ketik perintah, atau Enter untuk coba dengar lagi: ").strip()
-            if not fallback:
-                continue
-            command = fallback
-
-        safe_print(f"Kamu: {command}")
-        if not assistant.handle(command):
-            break
+    safe_print(f"[stt] Mesin: {voice.stt.name}. Bicara saja; Ctrl+C untuk keluar.")
+    loop = VoiceLoop(assistant, voice, wake_required=False)
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        voice.stop()
 
 
 def run_text_loop(assistant: Assistant) -> None:

@@ -65,6 +65,36 @@ Atur kota cuaca default di `commands.json`:
 }
 ```
 
+## Suara offline dan memotong Mika
+
+**Mesin pengenal suara.** Pilih di Settings, tab `Suara & AI`, atau di `commands.json`:
+
+```json
+"stt": { "engine": "whisper", "whisper": { "model": "small" } }
+```
+
+- `google`: perilaku lama, butuh internet, audio dikirim ke Google.
+- `whisper`: offline dan privat, audio tidak keluar dari laptop. Pemakaian pertama mengunduh model
+  (`small` sekitar 480 MB, `base` 145 MB, `tiny` 75 MB) ke `C:\Users\<nama>\.cache\huggingface`.
+  Kalau LLM lokal (Ollama) memakai GPU 4 GB, Whisper otomatis jalan di CPU.
+  Pakai `small`: dari hasil uji, `tiny` memang cepat (±0,25 detik) tapi sering salah dengar bahasa Indonesia.
+  Unduh model saat koneksi cepat; jalankan `run_mic_test.bat` sekali untuk memicu unduhannya.
+
+Coba dulu dengan `run_mic_test.bat`: daftar mikrofon, level suara, dan hasil transkrip dengan mesin yang dipilih.
+
+**Memotong Mika (barge-in).** Atur `barge_in.mode`:
+
+| Mode | Cara kerja | Cocok untuk |
+|---|---|---|
+| `keyword` (default) | Bilang `stop`, `cukup`, `diam`, atau `halo mika, ...` saat Mika bicara. Suara Mika sendiri yang terdengar balik dari speaker diabaikan. | Speaker laptop |
+| `voice` | Ucapan apa pun langsung memotong Mika. | Headset |
+| `off` | Ucapan saat Mika bicara diabaikan, seperti versi lama. | Ruangan ramai |
+
+Dari tray juga ada menu **Diam (hentikan suara)**.
+
+**Latensi.** Setiap giliran dicatat di `data/latency.jsonl`: waktu pengenalan suara, token pertama LLM, dan suara
+pertama Mika, dihitung dari saat kamu selesai bicara.
+
 ## Cara menjalankan
 
 1. Install Python 3.10 atau lebih baru.

@@ -24,13 +24,16 @@ class SettingsWindow:
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.general_tab = ttk.Frame(self.notebook)
+        self.voice_tab = ttk.Frame(self.notebook)
         self.shortcuts_tab = ttk.Frame(self.notebook)
         self.raw_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.general_tab, text="General")
+        self.notebook.add(self.voice_tab, text="Suara & AI")
         self.notebook.add(self.shortcuts_tab, text="Shortcuts")
         self.notebook.add(self.raw_tab, text="Raw JSON")
 
         self.build_general_tab()
+        self.build_voice_tab()
         self.build_shortcuts_tab()
         self.build_raw_tab()
         self.build_footer()
@@ -160,6 +163,11 @@ class SettingsWindow:
         self.ambient_adjust.set(str(listen.get("ambient_adjust_seconds", 0.15)))
         self.pause_threshold.set(str(listen.get("pause_threshold", 0.45)))
         self.non_speaking_duration.set(str(listen.get("non_speaking_duration", 0.2)))
+        stt = self.config.get("stt", {})
+        self.stt_engine.set(str(stt.get("engine", "google")))
+        self.whisper_model.set(str(stt.get("whisper", {}).get("model", "small")))
+        self.barge_in_mode.set(str(self.config.get("barge_in", {}).get("mode", "keyword")))
+        self.weather_city.set(str(self.config.get("weather", {}).get("location", "Jakarta")))
         self.refresh_shortcuts()
         self.refresh_raw()
 
@@ -178,6 +186,40 @@ class SettingsWindow:
         self.config["listen"]["ambient_adjust_seconds"] = float(self.ambient_adjust.get().strip() or 0.15)
         self.config["listen"]["pause_threshold"] = float(self.pause_threshold.get().strip() or 0.45)
         self.config["listen"]["non_speaking_duration"] = float(self.non_speaking_duration.get().strip() or 0.2)
+        stt = self.config.setdefault("stt", {})
+        stt["engine"] = self.stt_engine.get() or "google"
+        stt.setdefault("whisper", {})["model"] = self.whisper_model.get() or "small"
+        self.config.setdefault("barge_in", {})["mode"] = self.barge_in_mode.get() or "keyword"
+        self.config.setdefault("weather", {})["location"] = self.weather_city.get().strip() or "Jakarta"
+
+    def build_voice_tab(self) -> None:
+        """Speech-to-text engine, barge-in mode, and weather city (stage 2-3 settings)."""
+        frame = ttk.Frame(self.voice_tab, padding=12)
+        frame.pack(fill="both", expand=True)
+        self.stt_engine = tk.StringVar()
+        self.whisper_model = tk.StringVar()
+        self.barge_in_mode = tk.StringVar()
+        self.weather_city = tk.StringVar()
+        choices = [
+            ("Speech-to-text", self.stt_engine, ["google", "whisper"],
+             "google: online seperti dulu. whisper: offline dan privat, audio tidak keluar dari laptop."),
+            ("Model Whisper", self.whisper_model, ["tiny", "base", "small", "medium"],
+             "small paling seimbang untuk bahasa Indonesia; medium lebih akurat tapi lebih lambat di CPU."),
+            ("Barge-in", self.barge_in_mode, ["off", "keyword", "voice"],
+             "keyword: potong Mika dengan 'stop' atau 'halo mika ...' (aman di speaker laptop). voice: ucapan apa pun "
+             "memotong Mika, pakai headset."),
+        ]
+        row = 0
+        for label, variable, values, hint in choices:
+            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=(10, 2))
+            ttk.Combobox(frame, textvariable=variable, values=values, state="readonly", width=20).grid(
+                row=row, column=1, sticky="w", pady=(10, 2)
+            )
+            ttk.Label(frame, text=hint, foreground="#555", wraplength=480).grid(row=row + 1, column=1, sticky="w")
+            row += 2
+        ttk.Label(frame, text="Kota cuaca").grid(row=row, column=0, sticky="w", pady=(10, 2))
+        ttk.Entry(frame, textvariable=self.weather_city, width=30).grid(row=row, column=1, sticky="w", pady=(10, 2))
+        frame.columnconfigure(1, weight=1)
 
     def on_preset_select(self, event=None) -> None:
         preset = self.personality_preset.get().strip() or "cute"

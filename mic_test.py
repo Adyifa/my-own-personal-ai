@@ -1,39 +1,66 @@
+"""Microphone test (run_mic_test.bat): lists input devices, shows the live level, and transcribes one utterance
+with the speech-to-text engine chosen in commands.json (Google or offline Whisper)."""
+
 from __future__ import annotations
 
 import json
+import sys
+import time
 
-import speech_recognition as sr
-
-from assistant import CONFIG_PATH, Speaker, ensure_config, listen_once
+from mika.audio.capture import list_input_devices
+from mika.audio.speech import Speaker
+from mika.audio.stt import build_stt
+from mika.audio.voice import VoiceInput
+from mika.config import CONFIG_PATH, ensure_config
 
 
 def main() -> int:
     config = ensure_config()
-    speaker = Speaker.from_config(config)
+    config["barge_in"]["mode"] = "off"
+    print("Microphone yang terbaca:")
+    try:
+        for device in list_input_devices():
+            print(f"  {device['index']}: {device['name']} ({device['rate']} Hz)")
+    except Exception as exc:
+        print(f"  Gagal membaca daftar mic: {exc}")
+    current = config.get("listen", {}).get("device_index")
+    print(f"\nlisten.device_index sekarang: {current}  (kosong = mic default Windows)")
 
-    print("Daftar microphone yang terbaca:")
-    for index, name in enumerate(sr.Microphone.list_microphone_names()):
-        print(f"{index}: {name}")
+    stt = build_stt(config)
+    print(f"Mesin speech-to-text: {stt.name}")
+    if stt.name == "whisper":
+        print("Memuat model Whisper (pertama kali akan mengunduh model)...")
+        stt.warm_up()
+        print(f"Whisper siap di {stt.device} ({stt.compute_type}) dalam {stt.load_seconds:.1f} detik: {stt.device_reason}")
 
-    print()
-    current_device = config.get("listen", {}).get("device_index")
-    print(f"device_index di commands.json sekarang: {current_device}")
-    print("Kalau default mic salah, isi listen.device_index dengan angka mic yang benar.")
-    print()
-    input("Tekan Enter, lalu ucapkan: buka youtube ...")
+    voice = VoiceInput(config, Speaker(enabled=False), stt)
+    try:
+        voice.start()
+    except Exception as exc:
+        print(f"\nMikrofon tidak bisa dibuka: {exc}")
+        print("Cek Settings > Privacy & security > Microphone, lalu isi listen.device_index yang benar.")
+        return 1
 
-    command = listen_once(config, speaker, quiet=False)
+    print("\nUcapkan: halo mika buka youtube  (10 detik)")
+    deadline = time.time() + 10
+    heard = None
+    try:
+        while time.time() < deadline and heard is None:
+            heard = voice.next(timeout=0.2)
+            bar = "#" * min(40, int(voice.level / 150))
+            sys.stdout.write(f"\r  level {bar:<40}")
+            sys.stdout.flush()
+    finally:
+        voice.stop()
     print()
-    if command:
-        print(f"Berhasil dengar: {command}")
+    if heard:
+        print(f"Terdengar: {heard.text!r}  ({heard.engine}, {heard.stt_seconds:.2f} detik)")
     else:
-        print("Belum berhasil menangkap suara.")
-        print("Coba cek Settings > Privacy & security > Microphone, lalu pastikan izin mic aktif.")
+        print("Belum ada ucapan yang tertangkap. Kalau level tidak bergerak saat bicara, mic yang dipilih salah.")
 
-    print()
-    print(f"File config: {CONFIG_PATH}")
-    print("Contoh setting device_index:")
-    print(json.dumps({"listen": {"device_index": 1}}, indent=2))
+    print(f"\nFile config: {CONFIG_PATH}")
+    print("Contoh pengaturan:")
+    print(json.dumps({"listen": {"device_index": 1}, "stt": {"engine": "whisper"}}, indent=2))
     return 0
 
 

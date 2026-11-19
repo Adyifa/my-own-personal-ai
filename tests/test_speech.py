@@ -108,3 +108,11 @@ def test_from_config_picks_backend():
     assert Speaker.from_config(config).backend is None
     config["voice"]["enabled"] = False
     assert Speaker.from_config(config).enabled is False
+
+
+def test_recent_speech_and_audio_end_are_tracked_for_echo_rejection(tmp_path):
+    speaker = Speaker(backend=FakeBackend(tmp_path), player=FakePlayer(), sapi=FakeSapi())
+    speaker.say("Menurut Kompas, harga emas naik.")
+    assert speaker.recent_speech(20) == ["Menurut Kompas, harga emas naik."]
+    assert speaker.recent_speech(0) == []
+    assert speaker.last_audio_end is not None and not speaker.is_speaking()

@@ -243,3 +243,60 @@ def test_agent_bad_time_is_reported_back_to_the_model(config, speaker, launcher,
     assistant.handle("tolong kabari aku kapan-kapan buat olahraga")
     assert len(llm.calls) == 2
     assert speaker.said[-1] == "Mau diingatkan jam berapa?"
+
+
+# Barge-in and latency (stage 3) --------------------------------------------------------------
+
+
+def test_interrupt_cancels_the_running_agent_turn(config, speaker, launcher):
+    assistant = None
+
+    class BargeInLLM(ScriptedLLM):
+        def stream_chat(self, messages, tools=None, **kwargs):
+            yield from text("Ini kalimat pertama. ", "Lalu")[:-1]  # "Lalu" completes the first sentence
+            assistant.interrupt()  # the barge-in thread fires while the model is still writing
+            yield from text(" kalimat ini tidak boleh terdengar.")
+
+    assistant = make(config, speaker, launcher, BargeInLLM())
+    assistant.handle("ceritakan sejarah indonesia")
+    assert speaker.said == ["Ini kalimat pertama."]
+    assert speaker.stopped
+    assert assistant.latency.entries[-1]["interrupted"] is True
+
+
+def test_latency_is_measured_from_end_of_speech(config, speaker, launcher):
+    import json
+    from pathlib import Path
+
+    from mika.audio.voice import Heard
+
+    speaker.first_audio_at = None
+    assistant = make(config, speaker, launcher)
+    heard = Heard("halo mika buka youtube", speech_end_at=100.0, stt_seconds=0.42, engine="whisper")
+
+    original_mark = speaker.mark_turn
+
+    def mark_turn():
+        original_mark()
+        speaker.first_audio_at = 100.9  # pretend audio started 0.9 s after the user stopped talking
+
+    speaker.mark_turn = mark_turn
+    assistant.handle("halo mika buka youtube", heard=heard)
+    entry = assistant.latency.entries[-1]
+    assert entry["route"] == "rule:open_website"
+    assert (entry["stt_engine"], entry["stt_s"], entry["first_audio_s"]) == ("whisper", 0.42, 0.9)
+    logged = Path(config["data_dir"], "latency.jsonl").read_text(encoding="utf-8").splitlines()
+    assert json.loads(logged[-1])["first_audio_s"] == 0.9
+
+
+def test_stop_during_a_skill_reply_cancels_its_action(config, speaker, launcher, everyday):
+    assistant = make(config, speaker, launcher, hub=everyday.hub)
+    original_say = speaker.say
+
+    def say_and_get_interrupted(text):
+        original_say(text)
+        assistant.interrupt()  # user: "stop" while Mika says "Oke, suara Mika bisukan."
+
+    speaker.say = say_and_get_interrupted
+    assistant.handle("matikan suara")
+    assert everyday.endpoint.muted == 0

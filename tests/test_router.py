@@ -195,6 +195,7 @@ def test_file_explorer_is_an_app_not_a_file_search(config, launcher):
         ("halo mica buka youtube", True, "buka youtube"),
         ("hai mikha cari berita", True, "cari berita"),
         ("halo mika", True, ""),
+        ("halomika ingatkan aku", True, "ingatkan aku"),  # Whisper sometimes joins the words
         ("buka youtube", False, "buka youtube"),
     ],
 )

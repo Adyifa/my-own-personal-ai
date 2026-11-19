@@ -15,6 +15,8 @@ from .persona import CONVERSATION_REPLIES, VOICE_PERSONALITY_PRESETS
 from .skills.browser import search_url, spotify_url
 from .skills.hub import SkillHub, SkillReply, build_skill_hub
 from .skills.launcher import Launcher
+from .config import DATA_DIR
+from .metrics import LatencyLog
 from .skills.power import execute_power_action
 from .text import clean_conversational_command, normalize, safe_print
 
@@ -92,12 +94,24 @@ class Assistant:
         self.conversation_until = 0.0
         self.last_route: Route | None = None
         self.last_reply: Any = None
+        self._turn_cancel = threading.Event()
+        data_dir = Path(config.get("data_dir") or DATA_DIR)
+        self.latency = LatencyLog(data_dir / "latency.jsonl" if config.get("metrics", {}).get("log_file", True) else None)
 
     # Entry point ------------------------------------------------------------------------
 
-    def handle(self, raw_command: str) -> bool:
-        """Handle one utterance. Returns False when the user asked Mika to stop."""
+    def interrupt(self) -> None:
+        """Barge-in: stop talking now and cancel the rest of the current turn (LLM stream included)."""
+        self._turn_cancel.set()
+        stop = getattr(self.speaker, "stop", None)
+        if callable(stop):
+            stop()
+
+    def handle(self, raw_command: str, heard: Any = None) -> bool:
+        """Handle one utterance. Returns False when the user asked Mika to stop.
+        `heard` (from the voice input) carries the end-of-speech time used for latency."""
         started = time.perf_counter()
+        self._turn_cancel = threading.Event()
         mark_turn = getattr(self.speaker, "mark_turn", None)
         if callable(mark_turn):
             mark_turn()
@@ -117,15 +131,25 @@ class Assistant:
 
         route = self.router.route(command)
         self.last_route = route
+        self.last_reply = None
         safe_print(f"[route] {route.path}:{route.intent}")
         if route.path == "rule":
             keep_running = self.run_rule(route, command)
         else:
             keep_running = self.run_agent(route, llm_text or command, command)
 
-        first_audio = getattr(self.speaker, "first_audio_at", None)
-        if first_audio is not None:
-            safe_print(f"[latency] {route.path}:{route.intent} first_audio={first_audio - started:.2f}s")
+        reply = self.last_reply
+        self.latency.record(
+            route=f"{route.path}:{route.intent}",
+            origin=getattr(heard, "speech_end_at", None) or started,
+            stt_engine=getattr(heard, "engine", ""),
+            stt_seconds=getattr(heard, "stt_seconds", None),
+            first_token_at=getattr(reply, "first_token_at", None),
+            first_audio_at=getattr(self.speaker, "first_audio_at", None),
+            finished_at=time.perf_counter(),
+            provider=getattr(reply, "provider", ""),
+            interrupted=self._turn_cancel.is_set(),
+        )
         return keep_running
 
     def warm_up(self) -> None:
@@ -159,7 +183,7 @@ class Assistant:
     def deliver(self, reply: SkillReply) -> None:
         """Speak a skill reply, run its post-speech action, show details, and arm its follow-up question."""
         self.speaker.say(reply.text)
-        if reply.after is not None:
+        if reply.after is not None and not self._turn_cancel.is_set():  # "stop" during the reply cancels the action
             try:
                 reply.after()
             except Exception as exc:
@@ -277,7 +301,7 @@ class Assistant:
         from .brain.llm.base import LLMError
 
         try:
-            reply = self.agent.respond(text)
+            reply = self.agent.respond(text, should_stop=self._turn_cancel.is_set)
         except LLMError as exc:
             safe_print(f"[llm] {exc}")
             return self.offline_fallback(route, command)

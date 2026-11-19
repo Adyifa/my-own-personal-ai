@@ -26,6 +26,19 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def plain_words(text: str) -> str:
+    """Lowercase words only, all punctuation removed (for fuzzy comparisons, not for URLs or times)."""
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", text.lower())).strip()
+
+
+def clean_transcript(text: str) -> str:
+    """Drop sentence punctuation that Whisper adds ("Kecilkan volume." → "Kecilkan volume") while keeping
+    dots inside tokens such as "kompas.com" or "19.30"."""
+    text = re.sub(r"[.!?…]+(?=\s|$)", " ", text)
+    text = re.sub(r"[,;:\"“”]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def contains_phrase(text: str, phrase: str) -> bool:
     """Whole-word match, so the alias "word" does not fire inside "password"."""
     if not phrase:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import queue
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,8 @@ class Speaker:
         self.label = label
         self.provider = provider
         self.first_audio_at: float | None = None
+        self.last_audio_end: float | None = None  # for the echo "tail" right after Mika stops
+        self._recent: deque[tuple[float, str]] = deque(maxlen=20)  # what was played, for echo rejection
         self._generation = 0
         self._pending = 0
         self._cv = threading.Condition()
@@ -94,6 +97,11 @@ class Speaker:
         with self._cv:
             return self._pending > 0
 
+    def recent_speech(self, seconds: float = 20) -> list[str]:
+        """Sentences played in the last `seconds`; the mic may be hearing them back."""
+        now = time.perf_counter()
+        return [text for started, text in list(self._recent) if now - started <= seconds]
+
     def warm_up(self) -> None:
         """Synthesize a throwaway phrase at startup: the first Edge TTS call takes ~3 s, later ones ~0.5 s."""
         if not self.enabled or self.backend is None:
@@ -153,10 +161,12 @@ class Speaker:
                     continue
                 if self.first_audio_at is None:
                     self.first_audio_at = time.perf_counter()
+                self._recent.append((time.perf_counter(), text))
                 if audio is not None:
                     self.player.play(audio, lambda: not self._is_current(generation))
                 else:
                     self.sapi.speak(text)
+                self.last_audio_end = time.perf_counter()
             except Exception as exc:
                 safe_print(f"[voice] Gagal memutar suara: {exc}")
             finally:

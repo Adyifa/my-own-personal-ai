@@ -246,3 +246,49 @@ def test_session_expires_after_idle(config, launcher):
     assert len(session.history()) == 2
     now[0] = 61
     assert session.history() == []
+
+
+class ClosableLLM(ScriptedLLM):
+    """Records whether the agent closed the stream (which makes Ollama stop generating)."""
+
+    def __init__(self, *scripts):
+        super().__init__(*scripts)
+        self.closed = False
+
+    def stream_chat(self, messages, tools=None, **kwargs):
+        inner = super().stream_chat(messages, tools, **kwargs)
+        try:
+            yield from inner
+        finally:
+            self.closed = True
+
+
+def test_barge_in_stops_speech_and_closes_the_stream(config, launcher):
+    llm = ClosableLLM(text("Kalimat pertama. ", "Kalimat kedua. ", "Kalimat ketiga."))
+    agent, said, session = make_agent(config, launcher, llm)
+    reply = agent.respond("ceritakan sesuatu", should_stop=lambda: len(said) >= 1)
+    assert said == ["Kalimat pertama."]
+    assert reply.interrupted and llm.closed
+    assert len(session) == 1  # what was actually said is still remembered
+
+
+def test_interrupted_before_anything_says_nothing(config, launcher):
+    agent, said, _ = make_agent(config, launcher, ScriptedLLM(text("Halo.")))
+    reply = agent.respond("halo", should_stop=lambda: True)
+    assert said == [] and reply.interrupted
+
+
+def test_interrupt_between_tool_steps_skips_the_rest(config, launcher):
+    stop = {"now": False}
+    searcher = FakeSearcher([make_result()])
+
+    class StopAfterSearch(FakeSearcher):
+        def search(self, query):
+            stop["now"] = True  # user said "stop" while Mika was searching
+            return searcher.search(query)
+
+    llm = ScriptedLLM(tool("web_search", query="x"), text("Jawaban panjang."))
+    agent, said, _ = make_agent(config, launcher, llm, searcher=StopAfterSearch())
+    reply = agent.respond("cari x", should_stop=lambda: stop["now"])
+    assert reply.interrupted and len(llm.calls) == 1
+    assert "Jawaban panjang." not in said

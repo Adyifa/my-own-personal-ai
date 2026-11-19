@@ -36,6 +36,9 @@ python -m PyInstaller `
     --hidden-import mika.ui.settings `
     --hidden-import psutil `
     --hidden-import pycaw.pycaw `
+    --hidden-import webrtcvad `
+    --collect-data faster_whisper `
+    --collect-binaries ctranslate2 `
     --collect-data trafilatura `
     --collect-data justext `
     --hidden-import tkinter `

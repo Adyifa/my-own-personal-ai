@@ -201,6 +201,41 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_spoken_sentences": 3,
         "fast_action_replies": True,
     },
+    "stt": {
+        # "google": online, as before. "whisper": offline faster-whisper; no audio leaves the laptop.
+        "engine": "google",
+        "language": "id",
+        "whisper": {
+            "model": "small",
+            "device": "auto",  # auto: GPU only if the local LLM still fits next to it, else CPU int8
+            "compute_type": "auto",
+            "beam_size": 1,
+            "cpu_threads": 0,  # 0 = up to 8 threads
+            "download_root": "",
+            "llm_vram_reserve_mb": 3300,  # VRAM qwen3:4b needs with a 4k context
+            "disable_xet": True,  # first model download over plain HTTP (Xet transfer stalled on some networks)
+            "initial_prompt": "Percakapan santai dalam bahasa Indonesia dengan asisten suara bernama Mika.",
+        },
+        "vad": {
+            "engine": "auto",  # webrtc if installed, else energy
+            "aggressiveness": 2,
+            "silence_ms": 0,  # 0 = use listen.pause_threshold
+            "min_speech_ms": 250,
+            "preroll_ms": 300,
+            "max_utterance_seconds": 12,
+        },
+    },
+    "barge_in": {
+        # "off": ignore speech while Mika talks. "keyword": stop on stop/wake words, safe with laptop speakers.
+        # "voice": any speech interrupts at once; use with headphones (speakers would trigger it).
+        "mode": "keyword",
+        "stop_words": ["stop", "berhenti", "diam", "cukup", "udah", "sudah", "skip", "stop mika", "mika diam"],
+        "echo_similarity": 0.7,
+        "tail_ms": 400,
+    },
+    "metrics": {
+        "log_file": True,  # per-turn latency in data/latency.jsonl
+    },
     "reminders": {
         "missed_grace_hours": 12,  # reminders missed while the laptop was off are announced if not older than this
         "snooze_minutes": 5,

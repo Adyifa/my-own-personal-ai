@@ -29,10 +29,23 @@ runs on a Windows laptop (RTX 3050, 4 GB VRAM), while keeping the old fast, offl
 - [x] Same skills exposed to the agent as 5 grouped tools; the LLM extracts the time phrase, the parser computes it.
 - [x] Verified live on the target laptop (read-only checks; volume set to its own value).
 
-## Stage 3: Audio
+## Stage 3: Audio (done)
 
-Selectable STT (Google or faster-whisper + VAD; Whisper on CPU int8 when the LLM holds the GPU),
-barge-in (stop speaking when the user talks), per-stage latency tracking.
+- [x] Always-open microphone (PyAudio, 16 kHz frames, resampling fallback) instead of re-opening per sentence.
+- [x] WebRTC VAD (energy fallback that learns steady background noise) + endpointer with pre-roll,
+      minimum speech length, pause detection, and a maximum utterance length.
+- [x] Selectable STT: Google (online) or faster-whisper (offline). Device choice from free VRAM and whether
+      Ollama already holds the LLM; CPU int8 fallback when CUDA libraries are missing.
+- [x] Whisper hallucination filter (silence phrases, subtitle credits, repetition) and transcript cleanup.
+- [x] Barge-in: "keyword" mode (stop/wake words, echo rejected by comparing with Mika's recent speech),
+      "voice" mode for headsets, "off"; interrupting closes the LLM stream. Tray menu "Diam".
+- [x] Shared VoiceLoop for tray and console; mic test uses the configured engine; Settings tab "Suara & AI".
+- [x] Per-turn latency log (end of speech → transcript → first token → first audio) in `data/latency.jsonl`.
+- [x] Verified on the target laptop with synthetic Indonesian speech: real-time pipeline (frames → WebRTC VAD →
+      endpointer → Whisper) gives a transcript ~0.7 s after the end of speech; CUDA → CPU fallback works when
+      `cublas64_12.dll` is missing; Google 7/7 commands routed correctly, Whisper `tiny` 4/7.
+- [ ] Whisper `small` accuracy/latency: the model download ran at ~100 KB/s on the development network, so only
+      `tiny` was measured; re-measure `small` (and real voices, not synthetic) in stage 5.
 
 ## Stage 4: Beyond Alexa
 
