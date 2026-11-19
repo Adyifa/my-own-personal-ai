@@ -255,6 +255,7 @@ def build_beyond_tools(
     describe_screen: Callable[[str], tuple[str, str]] | None = None,
     clipboard: Any = None,
     briefing: Any = None,
+    disk: Any = None,
 ) -> list[ToolSpec]:
     """Stage 4 tools; each is offered to the LLM only when the utterance mentions its topic (tool retrieval)."""
     from ..memory import as_spoken, sensitive_reason
@@ -359,6 +360,32 @@ def build_beyond_tools(
             terminal=True,
             filler="Bentar, Mika siapkan briefing-nya.",
             keywords=("briefing", "brifing", "pagi", "agenda", "rangkuman hari", "berita hari ini"),
+        ))
+
+    if disk is not None:
+        from ..skills.disk import report_text
+
+        def disk_report(deep: bool = False) -> ToolResult:
+            """Read-only: what fills the drive and which caches could be cleaned. Deleting is not an AI tool on purpose:
+            the model also reads web pages, and a page must never be able to start a deletion."""
+            report = disk.deep_report() if deep else disk.quick_report()
+            spoken, detail = report_text(report)
+            return ToolResult(True, report.as_data(), speak=spoken, detail=detail)
+
+        specs.append(ToolSpec(
+            name="disk_report",
+            description=(
+                "Measure what fills the laptop's drive (read-only): free space, cleanable caches (NVIDIA shader cache, "
+                "temp files, npm, pip) and big folders. You cannot delete anything; if the user wants it cleaned, "
+                "tell them to say 'hapus cache' or 'hapus cache nvidia'."
+            ),
+            parameters={"type": "object", "properties": {"deep": {"type": "boolean", "description": "Measure every top-level folder (slow, up to a minute)."}}, "required": []},
+            handler=disk_report,
+            risk="safe",
+            terminal=True,
+            filler="Bentar, Mika cek disk dulu.",
+            keywords=("disk", "penyimpanan", "storage", "hardisk", "harddisk", "ssd", "drive", "penuh", "cache"),
+            untrusted_output=True,  # a deep scan lists folder names, and anyone can name a folder
         ))
     return specs
 

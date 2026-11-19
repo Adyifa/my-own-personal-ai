@@ -18,6 +18,7 @@ from .persona import CONVERSATION_REPLIES, VOICE_PERSONALITY_PRESETS
 from .skills.briefing import Briefing
 from .skills.browser import search_url, spotify_url
 from .skills.clipboard import Clipboard, task_instruction
+from .skills.disk import DiskCare, cleanup_detail, cleanup_question, cleanup_summary, report_text
 from .skills.hub import SkillHub, SkillReply, build_skill_hub, join_words
 from .skills.launcher import Launcher
 from .skills.news import NewsFeed, short_title
@@ -67,6 +68,8 @@ BEYOND_INTENTS: dict[str, Callable[[Any, dict[str, Any]], None]] = {
     "memory_forget": lambda assistant, args: assistant.forget(args.get("what", "")),
     "memory_forget_all": lambda assistant, args: assistant.forget_everything(),
     "never_mind": lambda assistant, args: assistant.speaker.say("Oke."),
+    "disk_report": lambda assistant, args: assistant.run_disk_report(args),
+    "disk_clean": lambda assistant, args: assistant.run_disk_clean(args),
 }
 
 
@@ -110,6 +113,7 @@ class Assistant:
         screen: ScreenCapture | None = None,
         news: NewsFeed | None = None,
         vision_llm: Any = None,
+        disk: DiskCare | None = None,
     ):
         self.config = config
         self.speaker = speaker
@@ -127,6 +131,7 @@ class Assistant:
         self.screen = screen or ScreenCapture(max_side=int(config.get("vision", {}).get("max_side", 1280)))
         self.news = news or NewsFeed(config)
         self.briefing = Briefing(self.hub, self.news, config)
+        self.disk = disk or DiskCare(config, data_dir=data_dir)
         self.vision_llm = vision_llm  # set by build_agent when AI mode is on
         self.chime: Callable[[], None] = _default_chime if config.get("reminders", {}).get("chime", True) else (lambda: None)
         self.pending_action: PendingAction | None = None
@@ -275,6 +280,40 @@ class Assistant:
             self.speaker.say(f"Oke, Mika lupakan: {as_spoken(removed[0].text)}.")
         else:
             self.speaker.say("Mika nggak nemu memori yang cocok.")
+
+    def run_disk_report(self, args: dict[str, Any]) -> None:
+        """"kenapa disk C-ku penuh?": measure (read-only), say the main causes, show the full list on screen."""
+        deep = bool(args.get("deep"))
+        speak_now = getattr(self.speaker, "say_async", None) or self.speaker.say
+        speak_now("Oke, Mika ukur semua folder di disk dulu, paling lama satu menit." if deep else "Bentar, Mika cek disk dulu.")
+        measure = self.disk.deep_report if deep else self.disk.quick_report
+        spoken, detail = report_text(measure(should_stop=self._turn_cancel.is_set))  # "stop" ends a long scan
+        self.deliver(SkillReply(spoken, detail=detail))
+
+    def run_disk_clean(self, args: dict[str, Any]) -> None:
+        """"hapus cache nvidia": only folders on the fixed cache list, measured first, deleted after a spoken "iya"."""
+        if args.get("unsupported"):
+            self.speaker.say(
+                f"Cache {args['unsupported']} belum masuk daftar yang boleh Mika hapus. Yang bisa: cache NVIDIA, "
+                "DirectX, file sementara, npm, pip, crash dump, dan Windows Update."
+            )
+            return
+        plan = self.disk.plan_cleanup(args.get("categories") or None)
+        if plan.total <= 0:
+            self.speaker.say("Cache-nya sudah bersih, nggak ada yang perlu dihapus.")
+            return
+        if self.display is not None:
+            self.display.show(self.name, cleanup_detail(plan))
+        self.speaker.say(cleanup_question(plan))
+        # Registered after the question: it takes ~10 s to say, and the answer window must start once it is heard.
+        self.request_confirmation("disk_clean", "cache dibersihkan", lambda: self._finish_disk_clean(plan))
+
+    def _finish_disk_clean(self, plan: Any) -> str:
+        """Runs after "iya": empty the folders (one UAC prompt for the admin ones) and say how much space came back."""
+        speak_now = getattr(self.speaker, "say_async", None) or self.speaker.say
+        speak_now("Oke, Mika bersihkan dulu." + (" Klik Yes di jendela izin Windows, ya." if plan.admin_items else ""))
+        result = self.disk.clean(plan)
+        return cleanup_summary(result, self.disk.free_space(), self.disk.drive_name)
 
     def forget_everything(self) -> None:
         """Wiping all memories is irreversible, so it waits for a spoken "iya"."""
@@ -561,16 +600,21 @@ class Assistant:
 
         if is_yes:
             self.pending_action = None
+            outcome = None
             try:
                 if pending.execute is not None:
-                    pending.execute()
+                    outcome = pending.execute()
                 else:
                     self.power_runner(pending.action)
             except Exception as exc:
                 safe_print(f"[confirm] {pending.action} gagal: {exc}")
                 self.speaker.say(f"Maaf, {pending.label} gagal dijalankan.")
                 return True
-            self.speaker.say(f"{self.personality('confirm_prefix', 'Oke')}, {pending.label}.")
+            # An action may report its own result ("Beres, 9 GB lega."); otherwise confirm with its label.
+            if isinstance(outcome, str) and outcome:
+                self.speaker.say(outcome)
+            else:
+                self.speaker.say(f"{self.personality('confirm_prefix', 'Oke')}, {pending.label}.")
             return True
         if is_no:
             self.pending_action = None

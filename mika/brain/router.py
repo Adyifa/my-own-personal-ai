@@ -125,6 +125,32 @@ _MEMORY_FORGET = re.compile(
     r"(?:\s+(?:bahwa|kalau|kalo|soal|tentang))?\s*(?P<what>.*)$"
 )
 _MEMORY_WIPE = re.compile(r"^(?:hapus|reset|kosongkan|bersihkan)\s+(?:semua\s+)?(?:memori|ingatan)(?:mu| kamu| mika)?(?:\s+tentang\s+(?:aku|saya))?$")
+
+# Disk check and cache cleanup: a question about fullness → read-only report; "hapus cache ..." → cleanup that asks.
+_DISK_NOUN = re.compile(r"\b(?:disk|disc|drive|hardisk|harddisk|hdd|ssd|penyimpanan|storage)\b")
+_CLOUD_DRIVE = re.compile(r"\b(?:google drive|gdrive|onedrive|one drive)\b")
+_DISK_FULL = re.compile(
+    r"\b(?:penuh|kepenuhan|sesak|sempit|habis|tinggal (?:sedikit|dikit)|makan tempat|makan ruang|boros|penyebab\w*"
+    r"|isi|isinya|paling besar|terbesar|gede banget|besar banget)\b"
+)
+_DISK_DEEP = re.compile(r"\b(?:detail|detil|lengkap|semua folder|menyeluruh|scan|analisis|analisa)\b")
+_DISK_LOOK = re.compile(r"\b(?:cek|lihat|periksa|scan|analisis|analisa|ukur)\b")
+_CLEAN_VERB = re.compile(r"^(?:hapus|bersihkan|kosongkan|clear|clean|cleanup|buang|delete)\b")
+_CLEAN_TARGET = re.compile(
+    r"\b(?:cache\w*|temp|temporary|file sementara|file sampah|junk|disk|disknya|penyimpanan|nvidia|shader|npm|pip"
+    r"|crash dump|dump|windows update)\b"
+)
+_CLEAN_CATEGORIES = [
+    (re.compile(r"\bnvidia\b"), "nvidia"),
+    (re.compile(r"\bdirect ?x\b|\bd3d"), "directx"),
+    (re.compile(r"\btemp\b|\btemporary\b|\bsementara\b"), "temp"),
+    (re.compile(r"\bnpm\b"), "npm"),
+    (re.compile(r"\bpip\b"), "pip"),
+    (re.compile(r"\bcrash\b|\bdump\b"), "crash"),
+    (re.compile(r"\bwindows update\b|\bupdate windows\b"), "windows_update"),
+]
+# Caches people ask about that are not on Mika's list (a browser's cache is the browser's own job).
+_UNSUPPORTED_CACHE = re.compile(r"\b(chrome|edge|browser|firefox|opera|brave|discord|spotify|steam|whatsapp|telegram|zoom|teams)\b")
 NEVER_MIND = {"saja", "aja", "aja deh", "deh", "ya", "saja deh", "lah", "dulu"}
 FORGET_ALL = {"semua", "semuanya", "semua memori", "semua tentang aku", "semua yang kamu tahu", "semua yang kamu ingat",
               "semua ingatan", "semua memorimu"}
@@ -209,6 +235,7 @@ class Router:
         for matcher in (
             self._match_power,
             self._match_beyond,
+            self._match_disk,  # before everyday: "kenapa disk C-ku penuh" is about this laptop, not an explanation
             self._match_everyday,
             self._match_music,
             self._match_file,
@@ -269,6 +296,27 @@ class Router:
             if what in FORGET_ALL:
                 return Route("rule", "memory_forget_all")
             return Route("rule", "memory_forget", {"what": what})
+        return None
+
+    def _match_disk(self, command: str, tokens: list[str]) -> Route | None:
+        """"kenapa disk C-ku penuh?" → read-only report; "hapus cache nvidia" → cleanup that waits for "iya"."""
+        if _CLEAN_VERB.search(command) and _CLEAN_TARGET.search(command):
+            categories: list[str] = []
+            for pattern, category in _CLEAN_CATEGORIES:
+                if pattern.search(command) and category not in categories:
+                    categories.append(category)
+            if "shader" in tokens and not categories:
+                categories = ["nvidia", "directx"]
+            unsupported = _UNSUPPORTED_CACHE.search(command)
+            if unsupported and not categories:
+                return Route("rule", "disk_clean", {"categories": [], "unsupported": unsupported.group(1)})
+            return Route("rule", "disk_clean", {"categories": categories})  # empty: every listed cache
+        if not _DISK_NOUN.search(command) or _CLOUD_DRIVE.search(command):
+            return None
+        if _DISK_FULL.search(command):
+            return Route("rule", "disk_report", {"deep": bool(_DISK_DEEP.search(command))})
+        if _DISK_DEEP.search(command) and _DISK_LOOK.search(command):
+            return Route("rule", "disk_report", {"deep": True})  # "cek detail disk", "scan disk c"
         return None
 
     def _match_everyday(self, command: str, tokens: list[str]) -> Route | None:

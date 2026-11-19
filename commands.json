@@ -276,6 +276,12 @@
     "enabled": true,
     "agent_can_remember": true
   },
+  "disk": {
+    "drive": "C:\\",
+    "quick_seconds": 4,
+    "deep_seconds": 60,
+    "admin_cleanup": true
+  },
   "reminders": {
     "missed_grace_hours": 12,
     "snooze_minutes": 5,

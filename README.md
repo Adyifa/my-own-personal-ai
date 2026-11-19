@@ -54,7 +54,7 @@ Mika's answers below are illustrative; the actions are what the code does.
 
 | Skill | Where to see it |
 |---|---|
-| LLM agent with tool calling (17 tools; rarely used ones are offered only when relevant) | [agent.py](mika/brain/agent.py), [toolset.py](mika/brain/toolset.py) |
+| LLM agent with tool calling (18 tools; rarely used ones are offered only when relevant) | [agent.py](mika/brain/agent.py), [toolset.py](mika/brain/toolset.py) |
 | Several LLM providers, local first, automatic fallback | [mika/brain/llm/](mika/brain/llm/) |
 | Multimodal: screen understanding with a local vision model, screenshots never saved | [vision.py](mika/skills/vision.py) |
 | Long-term memory the user can list and delete by voice, with secret filtering | [store.py](mika/memory/store.py) |
@@ -62,6 +62,7 @@ Mika's answers below are illustrative; the actions are what the code does.
 | Indonesian time understanding ("jam setengah 8 malam", "besok pagi", "lima belas menit lagi") | [timeparse.py](mika/skills/timeparse.py) |
 | Background scheduling that survives restarts and catches up on missed reminders | [reminders.py](mika/skills/reminders.py) |
 | Windows integration: media keys, Core Audio volume, battery, Open-Meteo weather | [mika/skills/](mika/skills/) |
+| Disk check ("kenapa disk C-ku penuh?") and cache cleanup limited to a fixed folder list that never follows links, with admin rights only through the Windows UAC prompt | [disk.py](mika/skills/disk.py), [test_disk.py](tests/test_disk.py) |
 | Real-time audio: voice activity detection, endpointing, offline Whisper with automatic CPU/GPU choice | [vad.py](mika/audio/vad.py), [stt.py](mika/audio/stt.py) |
 | Barge-in on laptop speakers without echo-cancellation hardware | [voice.py](mika/audio/voice.py) |
 | Latency measured per turn, from the end of the user's speech | [metrics.py](mika/metrics.py) |
@@ -102,7 +103,7 @@ flowchart LR
 1. **Rules first, AI second.** Known commands like "buka youtube" stay instant and work offline, because even a small local model adds a noticeable delay just to pick a tool. The router has no side effects, so its accuracy can be tested without a model.
 2. **Local-first AI with automatic fallback.** Qwen3 4B runs in Ollama inside 4 GB of VRAM: free, private, and offline. An OpenAI-compatible API is the backup. A failed provider is skipped for 2 minutes instead of costing a timeout on every request, and the switch only happens before the first word is spoken.
 3. **Speak while thinking.** Each sentence goes to text-to-speech as soon as it is complete, and the next one is synthesized while the current one plays. Spoken answers stay at 1 to 3 sentences; long details and sources appear on screen. Slow tools start with a short filler line, and simple actions skip a second AI call.
-4. **Safety in code, not only in the prompt.** Risky actions (shutdown, restart) only create a pending action that runs after the user says "iya". The AI has no tool to delete files or run commands, cannot open program files or non-web links, and treats web pages as data: text that tries to inject instructions is cleaned before the model sees it, and only public websites are fetched.
+4. **Safety in code, not only in the prompt.** Risky actions (shutdown, restart) only create a pending action that runs after the user says "iya". The AI has no tool to delete files or run commands, cannot open program files or non-web links, and treats web pages as data: text that tries to inject instructions is cleaned before the model sees it, and only public websites are fetched. Freeing disk space follows the same rule: the AI can only measure the disk. Emptying caches is a fixed voice command limited to a hard-coded list of cache folders; it states the size and waits for "iya", removes links without following them, and asks for admin rights through the normal Windows UAC prompt only for the folders that need it. Mika never runs as admin.
 5. **Small memory budget.** Conversation history keeps answers, not whole web pages, so it fits the 4k-token context of a small model.
 6. **Graceful degradation.** No AI model available: Mika behaves like the old version. No search API key: a free fallback search. Online voice unavailable: the Windows voice.
 7. **AI where it helps, code where it must be exact.** Small language models are unreliable at date arithmetic, so the AI only extracts the phrase ("besok jam 7 pagi") and a tested Indonesian time parser computes the moment. Mika always says the resolved time back ("Oke, Mika ingatkan minum obat jam 7 malam") so a misheard time is caught. Related tools are grouped (one `reminders` tool with an action field instead of six) to keep the tool list small for a 4k-token context.
@@ -260,7 +261,7 @@ Jawaban Mika di bawah ini hanya ilustrasi; aksinya sesuai dengan yang dikerjakan
 
 | Kemampuan | Lihat di |
 |---|---|
-| Agent LLM dengan tool calling (17 tool; yang jarang dipakai hanya ditawarkan saat relevan) | [agent.py](mika/brain/agent.py), [toolset.py](mika/brain/toolset.py) |
+| Agent LLM dengan tool calling (18 tool; yang jarang dipakai hanya ditawarkan saat relevan) | [agent.py](mika/brain/agent.py), [toolset.py](mika/brain/toolset.py) |
 | Beberapa provider LLM, lokal dulu, fallback otomatis | [mika/brain/llm/](mika/brain/llm/) |
 | Multimodal: memahami layar dengan model vision lokal, tangkapan layar tidak pernah disimpan | [vision.py](mika/skills/vision.py) |
 | Memori jangka panjang yang bisa dilihat dan dihapus lewat suara, dengan penyaring data rahasia | [store.py](mika/memory/store.py) |
@@ -268,6 +269,7 @@ Jawaban Mika di bawah ini hanya ilustrasi; aksinya sesuai dengan yang dikerjakan
 | Memahami ungkapan waktu bahasa Indonesia ("jam setengah 8 malam", "besok pagi", "lima belas menit lagi") | [timeparse.py](mika/skills/timeparse.py) |
 | Penjadwalan di latar belakang yang tetap jalan setelah restart dan mengejar pengingat yang terlewat | [reminders.py](mika/skills/reminders.py) |
 | Integrasi Windows: tombol media, volume Core Audio, baterai, cuaca Open-Meteo | [mika/skills/](mika/skills/) |
+| Cek disk ("kenapa disk C-ku penuh?") dan pembersihan cache yang terbatas pada daftar folder tetap, tidak pernah mengikuti link, dan hak admin hanya lewat jendela UAC Windows | [disk.py](mika/skills/disk.py), [test_disk.py](tests/test_disk.py) |
 | Audio real-time: deteksi suara (VAD), penentuan akhir ucapan, Whisper offline dengan pilihan CPU/GPU otomatis | [vad.py](mika/audio/vad.py), [stt.py](mika/audio/stt.py) |
 | Barge-in di speaker laptop tanpa perangkat peredam gema | [voice.py](mika/audio/voice.py) |
 | Latensi diukur per giliran, dihitung dari akhir ucapan pengguna | [metrics.py](mika/metrics.py) |
@@ -308,7 +310,7 @@ flowchart LR
 1. **Aturan dulu, AI kemudian.** Perintah yang sudah dikenal seperti "buka youtube" tetap instan dan jalan offline, karena model lokal yang kecil pun menambah jeda yang terasa hanya untuk memilih tool. Router tidak punya efek samping, jadi akurasinya bisa diuji tanpa model.
 2. **AI lokal dengan fallback otomatis.** Qwen3 4B berjalan di Ollama dalam VRAM 4 GB: gratis, privat, dan offline. API yang kompatibel dengan OpenAI menjadi cadangan. Provider yang gagal dilewati selama 2 menit supaya tidak menambah waktu tunggu di setiap permintaan, dan perpindahan hanya terjadi sebelum kata pertama diucapkan.
 3. **Bicara sambil berpikir.** Setiap kalimat langsung diubah jadi suara begitu selesai, dan kalimat berikutnya disiapkan selagi kalimat sekarang diputar. Jawaban suara dibatasi 1 sampai 3 kalimat; rincian panjang dan sumber tampil di layar. Tool yang lambat diawali kalimat pengisi singkat, dan aksi sederhana tidak perlu panggilan AI kedua.
-4. **Keamanan di kode, bukan hanya di prompt.** Aksi berisiko (mematikan, restart) hanya membuat aksi tertunda yang dijalankan setelah pengguna bilang "iya". AI tidak punya tool untuk menghapus file atau menjalankan perintah, tidak bisa membuka file program atau link non-web, dan memperlakukan halaman web sebagai data: teks yang mencoba menyisipkan instruksi dibersihkan sebelum dibaca model, dan hanya situs publik yang diambil.
+4. **Keamanan di kode, bukan hanya di prompt.** Aksi berisiko (mematikan, restart) hanya membuat aksi tertunda yang dijalankan setelah pengguna bilang "iya". AI tidak punya tool untuk menghapus file atau menjalankan perintah, tidak bisa membuka file program atau link non-web, dan memperlakukan halaman web sebagai data: teks yang mencoba menyisipkan instruksi dibersihkan sebelum dibaca model, dan hanya situs publik yang diambil. Mengosongkan ruang disk mengikuti aturan yang sama: AI hanya bisa mengukur disk. Mengosongkan cache adalah perintah suara tetap yang terbatas pada daftar folder cache di kode; Mika menyebut ukurannya dan menunggu "iya", menghapus link tanpa mengikutinya, dan meminta hak admin lewat jendela UAC Windows hanya untuk folder yang membutuhkannya. Mika tidak pernah berjalan sebagai admin.
 5. **Memori yang hemat.** Riwayat percakapan menyimpan jawaban, bukan isi halaman web, supaya muat di konteks 4k token milik model kecil.
 6. **Tetap berfungsi saat ada yang mati.** Model AI tidak tersedia: Mika kembali ke perilaku versi lama. Tidak ada API key pencarian: pakai pencarian gratis. Suara online mati: pakai suara Windows.
 7. **AI untuk yang butuh fleksibel, kode untuk yang harus tepat.** Model bahasa kecil sering salah menghitung tanggal, jadi AI hanya mengambil ungkapannya ("besok jam 7 pagi") dan parser waktu bahasa Indonesia yang teruji menghitung waktunya. Mika selalu mengulang waktu yang dipahami ("Oke, Mika ingatkan minum obat jam 7 malam") supaya salah dengar langsung ketahuan. Tool yang berkaitan digabung (satu tool `reminders` dengan pilihan aksi, bukan enam tool) supaya daftar tool tetap ringkas untuk konteks 4k token.

@@ -262,6 +262,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": True,  # facts in data/memory.json, injected into the AI's context
         "agent_can_remember": True,  # the AI may save facts the user states (never after reading web/screen text)
     },
+    "disk": {
+        "drive": "C:\\",
+        "quick_seconds": 4,  # time limit per folder for "kenapa disk C-ku penuh?"
+        "deep_seconds": 60,  # "cek detail disk" measures every top-level folder
+        "admin_cleanup": True,  # admin-only cache folders are emptied through the Windows UAC prompt
+    },
     "reminders": {
         "missed_grace_hours": 12,  # reminders missed while the laptop was off are announced if not older than this
         "snooze_minutes": 5,

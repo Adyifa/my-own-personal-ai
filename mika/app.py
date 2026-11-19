@@ -24,13 +24,14 @@ def build_assistant(
     clipboard: Any = None,
     screen: Any = None,
     news: Any = None,
+    disk: Any = None,
 ) -> Assistant:
     """Every dependency is injectable, which is how tests run without mic, speakers, model, screen, or network."""
     speaker = speaker or Speaker.from_config(config)
     extra: dict[str, Any] = {"power_runner": power_runner} if power_runner is not None else {}
     assistant = Assistant(
         config, speaker, display=display, launcher=launcher, hub=hub, memory=memory, clipboard=clipboard,
-        screen=screen, news=news, **extra,
+        screen=screen, news=news, disk=disk, **extra,
     )
     if config.get("llm", {}).get("enabled", True):
         try:
@@ -78,6 +79,7 @@ def build_agent(config: dict[str, Any], assistant: Assistant, speaker: Any, *, l
                 describe_screen=assistant.describe_screen,
                 clipboard=assistant.clipboard,
                 briefing=assistant.briefing,
+                disk=assistant.disk,
             ),
         ],
         confirm=assistant.request_confirmation,

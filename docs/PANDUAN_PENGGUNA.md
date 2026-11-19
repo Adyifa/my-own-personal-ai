@@ -266,6 +266,32 @@ Jawab `iya` untuk lanjut, atau `batal` untuk membatalkan.
 
 Jawaban santai juga dimengerti. Untuk lanjut, semua katanya harus setuju: `iya mika`, `oke gas`, `yakin`. Untuk batal, cukup satu kata penolakan: `gak jadi deh`, `nggak usah`, `jangan dulu`, `batalin aja`. Jawaban yang ragu seperti `ya udah` atau `iya tapi nanti` membuat Mika bertanya lagi, dan aksinya batal sendiri kalau tidak dijawab dalam beberapa detik.
 
+## Cek dan bersihkan disk
+
+Tanya kenapa disk penuh, Mika mengukurnya tanpa menghapus apa pun:
+
+```text
+halo mika kenapa disk c-ku penuh
+halo mika cek detail disk
+```
+
+Yang pertama selesai dalam beberapa detik: Mika menyebut cache terbesar yang bisa dibersihkan, dan daftar lengkapnya muncul di layar. `cek detail disk` mengukur semua folder (paling lama satu menit).
+
+Untuk membersihkan:
+
+```text
+halo mika hapus cache nvidia
+halo mika bersihin cache
+halo mika hapus file sementara
+```
+
+- Yang boleh dihapus hanya daftar cache tetap: cache shader NVIDIA dan DirectX, file sementara (Temp), cache npm dan pip, crash dump, dan unduhan lama Windows Update. Downloads, Documents, game, aplikasi, tempat sampah, dan file sistem tidak pernah disentuh.
+- Mika menyebut apa dan berapa besar yang akan dihapus, rinciannya muncul di layar, lalu menunggu `iya`. Penghapusannya permanen.
+- File yang sedang dipakai (misalnya cache game yang sedang jalan) dilewati.
+- Folder yang butuh hak admin (Windows Temp, cache Windows Update) dibersihkan lewat jendela izin Windows (UAC): klik `Yes`. Kalau ditolak, bagian itu dilewati. Matikan dengan `"admin_cleanup": false` di bagian `disk` pada `commands.json`.
+- AI-nya hanya bisa mengukur disk, tidak bisa menghapus. Penghapusan selalu lewat perintah di atas.
+- Cache NVIDIA akan terisi lagi sampai batasnya. Supaya tidak cepat penuh, kecilkan batasnya di NVIDIA Control Panel → Manage 3D Settings → Shader Cache Size.
+
 ## Wake phrase live
 
 Mika mendengarkan dalam potongan pendek. Dia mengabaikan suara biasa, lalu mulai memproses ketika mendengar wake phrase seperti:

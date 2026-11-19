@@ -87,7 +87,8 @@ _CONVERSATIONAL_REPLACEMENTS = {
     "liatin": "lihat", "lihatin": "lihat", "liat": "lihat", "ndelok": "lihat", "delok": "lihat", "lalajo": "nonton",
     "setelin": "setel", "setelkan": "setel", "nyetel": "setel", "nyetelin": "setel", "muterin": "putar", "puter": "putar",
     "bukak": "buka", "bukakno": "buka", "bukaen": "buka", "matiin": "matikan", "berhentiin": "hentikan",
-    "lanjutin": "lanjutkan",
+    "lanjutin": "lanjutkan", "hapusin": "hapus", "bersihin": "bersihkan", "bersiin": "bersihkan",
+    "kosongin": "kosongkan",
     # Site names as people type them or as speech-to-text writes them.
     "yutub": "youtube", "yutube": "youtube", "yutup": "youtube", "youtub": "youtube", "yt": "youtube",
     "gugel": "google", "gugle": "google",
@@ -105,7 +106,8 @@ _SUBJECTS = r"(?:aku|gue|gua|gw|gwa|saya|ane|aing|abdi|kulo|kula|awak|sy|ak|aq)"
 _WANTS = r"(?:mau|pengen|pengin|pingin|kepengen|kepingin|ingin|hayang|arep|mo|mw|pgn)"
 _ACTIONS = (
     r"(?:cari|buka|nonton|tonton|putar|setel|play|lihat|cek|main|mainkan|dengerin|dengarkan|jalankan|open|search"
-    r"|catat|catet|tulis|ingat|inget|ingatkan|ingetin|pasang|matikan|hentikan|lanjutkan|restart|kunci)"
+    r"|catat|catet|tulis|ingat|inget|ingatkan|ingetin|pasang|matikan|hentikan|lanjutkan|restart|kunci"
+    r"|hapus|bersihkan|kosongkan)"
 )
 # Notes, reminders, and memories: after the polite layers are peeled, their words are stored as the user said them.
 _CONTENT_HEAD = re.compile(r"^(?:catat|catet|catatlah|catetin|tulis|simpan|ingat|inget|ingatlah|ingatkan|ingetin|ingatin)\b")
