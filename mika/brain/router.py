@@ -85,6 +85,47 @@ MUSIC_REWRITES = [
     (r"^putar\s+lagu\s+yang\s+(.+)$", r"putar lagu \1 di spotify"),
     (r"^musik\s+(.+)$", r"putar musik \1 di spotify"),
 ]
+# Beyond Alexa (stage 4) ------------------------------------------------------------------
+_SCREEN = re.compile(
+    r"\b(?:lihat|liat|cek|baca|bacain|bacakan|jelaskan|terangkan|periksa)\s+(?:isi\s+)?"
+    r"(?P<target>layar(?:ku| aku| saya)?|screen|jendela(?: ini)?|tampilan(?: layar)?)\b"
+    r"|\bapa (?:yang )?(?:ada |tampil )?di layar(?:ku)?\b"
+)
+_CLIPBOARD = re.compile(
+    r"^(?:tolong\s+)?(?P<verb>rangkum|rangkumkan|ringkas|ringkaskan|terjemahkan|terjemahin|translate|artikan|jelaskan"
+    r"|terangkan|bacakan|bacain|baca)\b.*?\b(?:clipboard|copy-?an|copyan|hasil copy(?:an)?"
+    r"|(?:teks\s+)?yang\s+(?:aku\s+|ku\s+|tadi\s+|barusan\s+)?(?:copy|kopi|salin|dicopy|disalin|dikopi))\b"
+)
+_CLIPBOARD_ACTIONS = {
+    "rangkum": "summarize", "rangkumkan": "summarize", "ringkas": "summarize", "ringkaskan": "summarize",
+    "terjemahkan": "translate", "terjemahin": "translate", "translate": "translate", "artikan": "translate",
+    "jelaskan": "explain", "terangkan": "explain", "bacakan": "read", "bacain": "read", "baca": "read",
+}
+_BRIEFING = re.compile(r"\b(?:briefing|brifing)\b|^(?:rangkuman|ringkasan) (?:hari ini|pagi)\b|^(?:apa )?agenda(?:ku| aku)? hari ini\b")
+_NEWS = re.compile(
+    r"^(?:(?:bacakan|baca|bacain|apa|ada)\s+)?(?:berita|headline)(?:\s+(?:utama|terbaru|terkini|penting))?"
+    r"(?:\s+(?:hari ini|sekarang|pagi ini))?(?:\s+apa(?: saja| aja)?)?$"
+)
+_MEMORY_QUESTION = re.compile(r"^(?:kamu\s+)?(?:ingat|inget)\s+(?:nggak|gak|ga|tidak|enggak|apa|kah|ngga)\b")
+_MEMORY_ADD = re.compile(
+    r"^(?:kamu\s+)?(?:harus\s+)?(?:ingat(?:lah)?|inget(?:lah)?|ingat ingat)\s+(?:ya\s+)?(?:bahwa\s+|kalau\s+|kalo\s+)?(?P<fact>.+)$"
+    r"|^(?:simpan|tambahkan|catat|masukkan)\s+(?:ini\s+)?(?:ke|di|dalam)\s+(?:memori|ingatan)(?:mu| kamu)?\s+(?:bahwa\s+)?(?P<fact2>.+)$"
+)
+_MEMORY_LIST = re.compile(
+    r"\bapa (?:saja |aja )?yang kamu (?:ingat|inget|tahu|tau) tentang (?:aku|saya|diriku)\b"
+    r"|\bkamu (?:ingat|inget|tahu|tau) apa (?:saja |aja )?tentang (?:aku|saya)\b"
+    r"|\b(?:lihat|cek|daftar|isi) (?:memori|ingatan)(?:mu| kamu| mika)?\b"
+    r"|^(?:memori|ingatan)(?:mu| kamu| mika)?(?: apa saja| apa aja)?$"
+)
+_MEMORY_FORGET = re.compile(
+    r"^(?:lupakan|lupain|hapus (?:dari )?(?:memori|ingatan)(?:mu| kamu)?(?: tentang)?)"
+    r"(?:\s+(?:bahwa|kalau|kalo|soal|tentang))?\s*(?P<what>.*)$"
+)
+_MEMORY_WIPE = re.compile(r"^(?:hapus|reset|kosongkan|bersihkan)\s+(?:semua\s+)?(?:memori|ingatan)(?:mu| kamu| mika)?(?:\s+tentang\s+(?:aku|saya))?$")
+NEVER_MIND = {"saja", "aja", "aja deh", "deh", "ya", "saja deh", "lah", "dulu"}
+FORGET_ALL = {"semua", "semuanya", "semua memori", "semua tentang aku", "semua yang kamu tahu", "semua yang kamu ingat",
+              "semua ingatan", "semua memorimu"}
+
 # Everyday skills (stage 2) ---------------------------------------------------------------
 _EXPLAIN_START = re.compile(r"^(kenapa|mengapa|jelaskan|apa itu|apa bedanya|apa yang dimaksud|bagaimana cara|gimana cara)\b")
 _CANCEL_WORDS = {"batalkan", "batal", "hapus", "stop", "matikan", "hentikan", "cancel", "buang"}
@@ -156,6 +197,7 @@ class Router:
 
         for matcher in (
             self._match_power,
+            self._match_beyond,
             self._match_everyday,
             self._match_music,
             self._match_file,
@@ -180,6 +222,42 @@ class Router:
         for action, phrases in POWER_PHRASES:
             if any(contains_phrase(command, phrase) for phrase in phrases):
                 return Route("rule", "power", {"action": action, "label": POWER_LABELS[action]})
+        return None
+
+    def _match_beyond(self, command: str, tokens: list[str]) -> Route | None:
+        """Screen, clipboard, briefing, news headlines, and long-term memory commands."""
+        screen = _SCREEN.search(command)
+        if screen:
+            question = re.sub(r"^(?:dong|ya|mika|deh)\b|\b(?:dong|ya|deh)$", "", (command[: screen.start()] + " " + command[screen.end() :]).strip()).strip()
+            return Route("rule", "screen", {"question": question, "window": "jendela" in (screen.group("target") or "")})
+
+        clip = _CLIPBOARD.search(command)
+        if clip:
+            from ..skills.clipboard import target_language
+
+            return Route("rule", "clipboard", {"action": _CLIPBOARD_ACTIONS[clip.group("verb")], "language": target_language(command)})
+
+        if _BRIEFING.search(command):
+            return Route("rule", "briefing")
+        if _NEWS.search(command):
+            return Route("rule", "news")
+
+        if _MEMORY_LIST.search(command):
+            return Route("rule", "memory_list")
+        if not _MEMORY_QUESTION.search(command):
+            added = _MEMORY_ADD.search(command)
+            if added:
+                return Route("rule", "memory_add", {"fact": (added.group("fact") or added.group("fact2") or "").strip()})
+        if _MEMORY_WIPE.search(command):
+            return Route("rule", "memory_forget_all")
+        forget = _MEMORY_FORGET.search(command)
+        if forget:
+            what = forget.group("what").strip()
+            if what in NEVER_MIND:
+                return Route("rule", "never_mind")
+            if what in FORGET_ALL:
+                return Route("rule", "memory_forget_all")
+            return Route("rule", "memory_forget", {"what": what})
         return None
 
     def _match_everyday(self, command: str, tokens: list[str]) -> Route | None:

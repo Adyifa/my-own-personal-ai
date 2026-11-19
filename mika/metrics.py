@@ -48,7 +48,8 @@ class LatencyLog:
             "interrupted": interrupted,
         }
         self.entries.append(entry)
-        parts = [f"{key}={value}" for key, value in entry.items() if key not in ("ts",) and value not in (None, "", False)]
+        # "is" checks: a 0.0-second value must still be printed (0.0 == False in Python).
+        parts = [f"{key}={value}" for key, value in entry.items() if key != "ts" and value is not None and value != "" and value is not False]
         safe_print("[latency] " + " ".join(parts))
         if self.path is not None:
             try:

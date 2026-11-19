@@ -23,6 +23,22 @@ def build_llm(config: dict[str, Any]) -> FallbackProvider:
     return FallbackProvider(providers, cooldown_seconds=float(llm_config.get("failure_cooldown_seconds", 120)))
 
 
+def build_vision_llm(config: dict[str, Any]) -> FallbackProvider:
+    """Same chain with vision models. Screenshots go to the cloud only if vision.allow_cloud is on (off by default)."""
+    from .ollama import OllamaProvider
+    from .openai_compat import OpenAICompatProvider
+
+    llm_config = config.get("llm", {})
+    vision = config.get("vision", {})
+    providers: list[LLMProvider] = []
+    for name in llm_config.get("providers", ["ollama", "openai"]):
+        if name == "ollama":
+            providers.append(OllamaProvider({**llm_config.get("ollama", {}), "model": vision.get("ollama_model", "qwen2.5vl:3b")}))
+        elif name in ("openai", "openai_compatible") and vision.get("allow_cloud", False):
+            providers.append(OpenAICompatProvider({**llm_config.get("openai", {}), "model": vision.get("openai_model", "gpt-5-mini")}))
+    return FallbackProvider(providers, cooldown_seconds=float(llm_config.get("failure_cooldown_seconds", 120)))
+
+
 __all__ = [
     "FallbackProvider",
     "LLMError",
@@ -32,4 +48,5 @@ __all__ = [
     "StreamEvent",
     "ToolCall",
     "build_llm",
+    "build_vision_llm",
 ]

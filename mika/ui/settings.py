@@ -168,6 +168,10 @@ class SettingsWindow:
         self.whisper_model.set(str(stt.get("whisper", {}).get("model", "small")))
         self.barge_in_mode.set(str(self.config.get("barge_in", {}).get("mode", "keyword")))
         self.weather_city.set(str(self.config.get("weather", {}).get("location", "Jakarta")))
+        vision = self.config.get("vision", {})
+        self.vision_model.set(str(vision.get("ollama_model", "qwen2.5vl:3b")))
+        self.vision_cloud.set(bool(vision.get("allow_cloud", False)))
+        self.morning_briefing.set(bool(self.config.get("briefing", {}).get("on_good_morning", True)))
         self.refresh_shortcuts()
         self.refresh_raw()
 
@@ -191,6 +195,10 @@ class SettingsWindow:
         stt.setdefault("whisper", {})["model"] = self.whisper_model.get() or "small"
         self.config.setdefault("barge_in", {})["mode"] = self.barge_in_mode.get() or "keyword"
         self.config.setdefault("weather", {})["location"] = self.weather_city.get().strip() or "Jakarta"
+        vision = self.config.setdefault("vision", {})
+        vision["ollama_model"] = self.vision_model.get().strip() or "qwen2.5vl:3b"
+        vision["allow_cloud"] = bool(self.vision_cloud.get())
+        self.config.setdefault("briefing", {})["on_good_morning"] = bool(self.morning_briefing.get())
 
     def build_voice_tab(self) -> None:
         """Speech-to-text engine, barge-in mode, and weather city (stage 2-3 settings)."""
@@ -219,6 +227,18 @@ class SettingsWindow:
             row += 2
         ttk.Label(frame, text="Kota cuaca").grid(row=row, column=0, sticky="w", pady=(10, 2))
         ttk.Entry(frame, textvariable=self.weather_city, width=30).grid(row=row, column=1, sticky="w", pady=(10, 2))
+        row += 1
+        self.vision_model = tk.StringVar()
+        self.vision_cloud = tk.BooleanVar()
+        self.morning_briefing = tk.BooleanVar()
+        ttk.Label(frame, text="Model vision lokal").grid(row=row, column=0, sticky="w", pady=(10, 2))
+        ttk.Entry(frame, textvariable=self.vision_model, width=30).grid(row=row, column=1, sticky="w", pady=(10, 2))
+        ttk.Checkbutton(frame, text="Izinkan kirim tangkapan layar ke cloud (OpenAI) kalau model lokal tidak ada", variable=self.vision_cloud).grid(
+            row=row + 1, column=1, sticky="w", pady=4
+        )
+        ttk.Checkbutton(frame, text="Briefing pagi saat aku bilang 'selamat pagi'", variable=self.morning_briefing).grid(
+            row=row + 2, column=1, sticky="w", pady=4
+        )
         frame.columnconfigure(1, weight=1)
 
     def on_preset_select(self, event=None) -> None:

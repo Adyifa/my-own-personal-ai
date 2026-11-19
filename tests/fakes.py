@@ -221,3 +221,43 @@ def make_result(index: int = 1, source: str = "Kompas", content: str = "Isi beri
         source=source,
         content=content,
     )
+
+
+class FakeClipboard:
+    """In-memory clipboard with the real sanitize/truncate logic."""
+
+    def __init__(self, text: str = ""):
+        from mika.skills.clipboard import Clipboard
+
+        self.text = text
+        self.written: list[str] = []
+        self.inner = Clipboard(paste=lambda: self.text, copy=self.written.append, max_chars=200)
+
+    def read(self):
+        return self.inner.read()
+
+    def write(self, text: str) -> bool:
+        return self.inner.write(text)
+
+
+class FakeScreen:
+    def __init__(self):
+        self.captures = 0
+
+    def capture(self, active_window: bool = False) -> bytes:
+        self.captures += 1
+        return b"\xff\xd8fake-jpeg"
+
+
+class FakeNews:
+    def __init__(self, headlines=None):
+        from mika.skills.news import Headline
+
+        self.items = headlines if headlines is not None else [
+            Headline("Pemerintah umumkan libur nasional 2027", "https://www.antaranews.com/a", "Antara"),
+            Headline("Harga beras turun di pasar induk", "https://www.cnnindonesia.com/b", "CNN Indonesia"),
+            Headline("Timnas menang 2-0", "https://www.republika.co.id/c", "Republika"),
+        ]
+
+    def headlines(self, limit: int = 5):
+        return self.items[:limit]

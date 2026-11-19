@@ -18,6 +18,7 @@ class ToolResult:
     speak: str | None = None  # ready-made spoken reply, used by the fast path
     sources: list[Any] = field(default_factory=list)  # web sources to show on screen
     needs_confirmation: bool = False  # the action waits for a spoken "iya"
+    detail: str = ""  # long text for the screen (weather table, full screen description)
 
 
 @dataclass
@@ -32,6 +33,16 @@ class ToolSpec:
     terminal: bool = False  # success fully answers the request, so a 2nd LLM call can be skipped
     filler: str | None = None  # spoken while a slow tool runs ("Bentar, Mika cariin dulu ya.")
     confirm_label: Callable[[dict[str, Any]], str] | None = None  # what Mika says it is about to do
+    keywords: tuple[str, ...] = ()  # offered to the LLM only when the utterance mentions one (saves context)
+    untrusted_output: bool = False  # returns outside text (web, screen, clipboard) that may contain injections
+    deny_after_untrusted: bool = False  # refused in a turn that already read untrusted text (e.g. saving memory)
+
+    def relevant(self, text: str) -> bool:
+        """Tool retrieval: always-on tools have no keywords; others need a keyword in the user's words."""
+        if not self.keywords:
+            return True
+        lowered = text.lower()
+        return any(keyword in lowered for keyword in self.keywords)
 
     def schema(self) -> dict[str, Any]:
         """Function-calling schema understood by both Ollama and OpenAI."""
@@ -63,15 +74,22 @@ class ToolRegistry:
         """Look up a tool by name."""
         return self._specs.get(name)
 
-    def schemas(self) -> list[dict[str, Any]]:
-        """All tool schemas, sent to the LLM with every request."""
-        return [spec.schema() for spec in self._specs.values()]
+    def schemas(self, text: str | None = None) -> list[dict[str, Any]]:
+        """Schemas sent to the LLM; with `text`, only tools relevant to that utterance (keeps a 4k context free)."""
+        return [spec.schema() for spec in self._specs.values() if text is None or spec.relevant(text)]
 
-    def execute(self, call: ToolCall) -> ToolResult:
-        """Validate and run one call; never raises, errors go back to the model as data it can explain."""
+    def execute(self, call: ToolCall, *, tainted: bool = False) -> ToolResult:
+        """Validate and run one call; never raises, errors go back to the model as data it can explain.
+        `tainted`: this turn already read untrusted text, so tools that persist things are refused."""
         spec = self._specs.get(call.name)
         if spec is None:
             return ToolResult(False, {"error": f"Tool '{call.name}' tidak ada. Tool tersedia: {', '.join(self._specs)}"})
+        if tainted and spec.deny_after_untrusted:
+            return ToolResult(
+                False,
+                {"error": "Ditolak demi keamanan: giliran ini sudah membaca teks dari luar (web, layar, atau clipboard). "
+                          "Minta pengguna mengucapkannya langsung."},
+            )
 
         arguments, error = _validate(spec, call.arguments or {})
         if error:

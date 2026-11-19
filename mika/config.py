@@ -236,6 +236,31 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "metrics": {
         "log_file": True,  # per-turn latency in data/latency.jsonl
     },
+    "vision": {
+        "ollama_model": "qwen2.5vl:3b",  # local vision model (~3 GB); swaps with the text model on a 4 GB GPU
+        "openai_model": "gpt-5-mini",
+        "allow_cloud": False,  # screenshots never leave the laptop unless this is switched on
+        "max_side": 1280,
+    },
+    "clipboard": {
+        "max_chars": 6000,  # ~1500-2000 tokens, fits the local model's 4k context
+        "copy_translation": True,
+    },
+    "briefing": {
+        "on_good_morning": True,  # "selamat pagi" before 11:00 gives the briefing
+        "spoken_headlines": 2,
+        "news_timeout_seconds": 4,
+        "news_feeds": [
+            "https://www.antaranews.com/rss/terkini.xml",
+            "https://www.cnnindonesia.com/nasional/rss",
+            "https://www.republika.co.id/rss",
+            "https://www.cnbcindonesia.com/news/rss",
+        ],
+    },
+    "memory": {
+        "enabled": True,  # facts in data/memory.json, injected into the AI's context
+        "agent_can_remember": True,  # the AI may save facts the user states (never after reading web/screen text)
+    },
     "reminders": {
         "missed_grace_hours": 12,  # reminders missed while the laptop was off are announced if not older than this
         "snooze_minutes": 5,

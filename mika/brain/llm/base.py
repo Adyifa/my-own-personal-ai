@@ -25,6 +25,7 @@ class Message:
     tool_calls: list[ToolCall] = field(default_factory=list)
     tool_call_id: str | None = None
     name: str | None = None  # tool name, for role == "tool"
+    images: list[bytes] = field(default_factory=list)  # JPEG bytes for vision models (screenshots)
 
 
 @dataclass

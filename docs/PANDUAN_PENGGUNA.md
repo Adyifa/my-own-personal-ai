@@ -95,6 +95,20 @@ Dari tray juga ada menu **Diam (hentikan suara)**.
 **Latensi.** Setiap giliran dicatat di `data/latency.jsonl`: waktu pengenalan suara, token pertama LLM, dan suara
 pertama Mika, dihitung dari saat kamu selesai bicara.
 
+## Layar, clipboard, briefing, dan memori
+
+| Fitur | Contoh perintah | Catatan |
+|---|---|---|
+| Lihat layar | `lihat layarku`, `lihat layarku, error ini artinya apa`, `jelaskan jendela ini` | Butuh `ollama pull qwen2.5vl:3b`. Tangkapan layar tidak disimpan dan tidak dikirim ke cloud kecuali diizinkan di Settings. |
+| Clipboard | `rangkum yang aku copy`, `terjemahkan yang aku copy ke inggris`, `jelaskan yang aku salin`, `bacakan clipboard` | Hasil terjemahan otomatis disalin ke clipboard. `bacakan` jalan tanpa AI. |
+| Briefing | `briefing pagi`, `apa agenda hari ini`, atau `selamat pagi` sebelum pukul 11.00 | Isi: tanggal, cuaca, pengingat hari ini, dua judul berita. |
+| Berita | `berita hari ini`, `berita terbaru` | Judul dari Antara, CNN Indonesia, Republika, CNBC Indonesia; tautan tampil di layar. |
+| Memori | `ingat bahwa aku suka kopi tanpa gula`, `apa yang kamu ingat tentang aku`, `lupakan soal kopi`, `hapus semua memori` | Disimpan di `data/memory.json` (tidak ikut Git). Menghapus semua butuh jawaban "iya". Password, PIN, OTP, nomor kartu, NIK, dan rekening selalu ditolak. |
+
+Memori dipakai AI saat relevan, misalnya saran makanan memperhitungkan alergi yang pernah kamu sebut.
+Setelah AI membaca halaman web, layar, atau clipboard dalam satu giliran, ia tidak boleh menyimpan memori,
+supaya teks dari luar tidak bisa menanam "ingatan palsu".
+
 ## Cara menjalankan
 
 1. Install Python 3.10 atau lebih baru.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from typing import Any, Iterator
 
@@ -25,8 +26,15 @@ class OllamaProvider:
             float(config.get("read_timeout_seconds", 60)),
             connect=float(config.get("connect_timeout_seconds", 1.5)),  # fail fast when Ollama is not running
         )
-        self.client = client or httpx.Client(timeout=self.timeout)
+        self._client = client
         self._send_think = self.think is not None
+
+    @property
+    def client(self) -> httpx.Client:
+        """Created on first use, so building the provider chain at startup costs nothing."""
+        if self._client is None:
+            self._client = httpx.Client(timeout=self.timeout)
+        return self._client
 
     def is_configured(self) -> bool:
         """A local server needs no key; reachability is checked on first use."""
@@ -136,6 +144,8 @@ class OllamaProvider:
             ]
         if message.role == "tool" and message.name:
             wire["tool_name"] = message.name
+        if message.images:
+            wire["images"] = [base64.b64encode(image).decode("ascii") for image in message.images]
         return wire
 
 

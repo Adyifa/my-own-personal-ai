@@ -13,6 +13,8 @@ trafilatura>=2.0
 # Everyday skills: battery/system info and exact volume control
 psutil>=5.9
 pycaw>=20240316
+# Clipboard summarize/translate
+pyperclip>=1.8
 # Offline speech-to-text and voice activity detection
 numpy>=1.24
 faster-whisper>=1.1

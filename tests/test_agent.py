@@ -218,11 +218,13 @@ def test_open_file_refuses_programs(config, launcher, tmp_path: Path):
         text("Itu file program, jadi nggak Mika buka."),
         tool("open_file", name="laporan q3"),
     )
-    agent, _, _ = make_agent(config, launcher, llm)
+    agent, said, _ = make_agent(config, launcher, llm)
     agent.respond("buka installer baru")
     assert launcher.started_files == []
     agent.respond("buka laporan q3")
     assert [p.name for p in launcher.started_files] == ["laporan_q3.docx"]
+    # The filler must not swallow the confirmation (regression found in stage 4).
+    assert said[-2:] == ["Bentar, Mika cariin filenya.", "Oke, Mika bukain laporan q3.docx ya."]  # "_" is spoken as a space
 
 
 @pytest.mark.parametrize("site", ["file:///C:/Windows/system32", "ms-settings:privacy", "javascript:alert(1)"])

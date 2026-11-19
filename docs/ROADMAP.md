@@ -47,10 +47,20 @@ runs on a Windows laptop (RTX 3050, 4 GB VRAM), while keeping the old fast, offl
 - [ ] Whisper `small` accuracy/latency: the model download ran at ~100 KB/s on the development network, so only
       `tiny` was measured; re-measure `small` (and real voices, not synthetic) in stage 5.
 
-## Stage 4: Beyond Alexa
+## Stage 4: Beyond Alexa (done)
 
-"Lihat layarku" (screenshot → vision model), summarize/translate the clipboard,
-morning briefing, long-term memory about the user that can be listed and deleted by voice.
+- [x] "Lihat layarku": screenshot (primary screen or active window) kept in memory only, downscaled JPEG,
+      local vision model through Ollama (`qwen2.5vl:3b`); cloud vision is opt-in (`vision.allow_cloud`).
+- [x] Clipboard: summarize, translate (copied back to the clipboard), explain, or read aloud (no AI needed);
+      clipboard text is sanitized and treated as data.
+- [x] Morning briefing (date, weather, today's reminders, headlines) and a fast "berita hari ini" from four RSS feeds;
+      "selamat pagi" before 11:00 triggers the briefing.
+- [x] Long-term memory in `data/memory.json`: remember / list / forget by voice, wiping everything needs a spoken
+      "iya", secrets (passwords, PINs, card and ID numbers) are refused, relevant facts go into the system prompt.
+- [x] Agent: 4 new tools; tool retrieval by keyword (rarely used tools only when relevant); taint tracking blocks
+      memory writes after web, screen, or clipboard text was read in the same turn.
+- [x] Verified on the target laptop: briefing with live weather and news (2.2 s), headlines (0.12 s), memory flow,
+      screenshot capture and the "no vision model" path. Not yet run with a real vision model (Ollama not installed).
 
 ## Stage 5: Quality and presentation
 

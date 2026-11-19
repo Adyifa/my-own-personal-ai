@@ -37,11 +37,13 @@ class AgentReply:
     first_token_at: float | None = None  # absolute clock time, for end-of-speech latency
     llm_calls: int = 0
     interrupted: bool = False  # the user talked over Mika (barge-in)
+    tainted: bool = False  # this turn read untrusted text (web, screen, clipboard)
+    tool_detail: str = ""  # screen text produced by tools (weather table, briefing, memory list)
 
     @property
     def needs_display(self) -> bool:
         """Long details and sources are shown on screen instead of being read aloud."""
-        return bool(self.detail or self.sources)
+        return bool(self.detail or self.sources or self.tool_detail)
 
 
 class _SpokenStream:
@@ -107,11 +109,13 @@ class Agent:
         *,
         speak: Callable[[str], None],
         clock: Callable[[], float] = time.perf_counter,
+        memory: Any = None,
     ):
         self.llm = llm
         self.tools = tools
         self.session = session
         self.config = config
+        self.memory = memory  # long-term facts about the user, injected into the system prompt
         self._speak = speak
         self._clock = clock
         agent_config = config.get("agent", {})
@@ -135,9 +139,9 @@ class Agent:
         started = self._clock()
         out = _SpokenStream(self._speak, self.max_sentences, stop)
         reply = AgentReply(spoken=out.spoken)
-        schemas = self.tools.schemas()
+        schemas = self.tools.schemas(user_text)  # tool retrieval: rarely used tools only when relevant
         messages = [
-            Message("system", build_system_prompt(self.config, context=self._context_note())),
+            Message("system", build_system_prompt(self.config, context=self._context_note(user_text))),
             *self.session.history(),
             Message("user", user_text),
         ]
@@ -208,6 +212,7 @@ class Agent:
         user_text: str,
     ) -> bool:
         """Run the model's tool calls and append results; return True when the turn is finished."""
+        model_spoke = out.step_spoke  # before fillers: a filler must not suppress the action's confirmation
         quick_replies: list[str] = []
         all_quick = True
         for call in calls:
@@ -215,10 +220,14 @@ class Agent:
             if spec is not None and spec.filler and not out.spoke_anything:
                 out.say(spec.filler)  # no dead air while a slow tool (web/file search) runs
             safe_print(f"[agent] tool {call.name} {json.dumps(call.arguments, ensure_ascii=False)}")
-            result = self.tools.execute(call)
+            result = self.tools.execute(call, tainted=reply.tainted)
             reply.tools_used.append(call.name)
+            if spec is not None and spec.untrusted_output:
+                reply.tainted = True  # from now on this turn may not persist anything (prompt-injection guard)
             if result.sources:
                 reply.sources = list(result.sources)
+            if result.detail:
+                reply.tool_detail = "\n\n".join(filter(None, [reply.tool_detail, result.detail]))
             messages.append(Message("tool", render_tool_result(result), tool_call_id=call.id, name=call.name))
 
             if result.needs_confirmation:  # stop: the model must not continue (or claim success) past the gate
@@ -232,22 +241,84 @@ class Agent:
                 all_quick = False
 
         if self.fast_actions and all_quick and quick_replies and not COMPOUND_RE.search(user_text.lower()):
-            if not out.step_spoke:  # simple action done: template reply instead of a 2nd LLM round trip
+            if not model_spoke:  # simple action done: template reply instead of a 2nd LLM round trip
                 for text in quick_replies:
                     out.say(text)
             return True
         return False
 
-    def _context_note(self) -> str:
-        """Last search titles go in the system prompt (not chat history, which small models copy into speech)."""
+    def _context_note(self, user_text: str = "") -> str:
+        """Long-term memories relevant to this turn plus the last search titles, in the system prompt
+        (not the chat history, where a small model tends to copy such notes into its spoken answer)."""
+        notes = []
+        if self.memory is not None:
+            facts = self.memory.relevant(user_text, limit=8)
+            if facts:
+                notes.append("Yang kamu ingat tentang pengguna (pakai hanya kalau relevan): " + "; ".join(f.text for f in facts))
         results = self.session.last_results[:5]
-        if not results:
-            return ""
-        listing = "; ".join(
-            f"{index}. {getattr(result, 'source', '')}: {getattr(result, 'title', '')}"
-            for index, result in enumerate(results, start=1)
+        if results:
+            listing = "; ".join(
+                f"{index}. {getattr(result, 'source', '')}: {getattr(result, 'title', '')}"
+                for index, result in enumerate(results, start=1)
+            )
+            notes.append(f"Hasil web_search terakhir (nomor untuk open_search_result): {listing}")
+        return "\n".join(notes)
+
+    def run_task(
+        self,
+        system: str,
+        user_text: str,
+        *,
+        images: list[bytes] | None = None,
+        llm: LLMProvider | None = None,
+        should_stop: Callable[[], bool] | None = None,
+        max_sentences: int | None = None,
+    ) -> AgentReply:
+        """One-shot job without tools or chat history (summarize the clipboard, describe the screen), still
+        spoken sentence by sentence. Raises LLMError when no model is reachable, like respond()."""
+        stop = should_stop or (lambda: False)
+        out = _SpokenStream(self._speak, max_sentences or self.max_sentences, stop)
+        reply = AgentReply(spoken=out.spoken, llm_calls=1)
+        started = self._clock()
+        stream = (llm or self.llm).stream_chat(
+            [Message("system", system), Message("user", user_text, images=list(images or []))],
+            None,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
         )
-        return f"Hasil web_search terakhir (nomor untuk open_search_result): {listing}"
+        try:
+            for event in stream:
+                if stop():
+                    reply.interrupted = True
+                    break
+                reply.provider = event.provider or reply.provider
+                if event.kind == "text":
+                    if reply.first_token_at is None:
+                        reply.first_token_at = self._clock()
+                        reply.first_token_seconds = reply.first_token_at - started
+                    out.feed(event.text)
+        finally:
+            close = getattr(stream, "close", None)
+            if callable(close):
+                close()
+        if not reply.interrupted:
+            out.end_step()
+        reply.full_text = DETAIL_RE.sub("\n", "".join(out.visible)).strip()
+        reply.detail = out.segmenter.detail
+        return reply
+
+
+def collect_task_text(
+    llm: LLMProvider, system: str, user_text: str, *, images: list[bytes] | None = None, max_tokens: int = 400
+) -> str:
+    """One-shot prompt without speaking (used inside tools); returns the visible text with think tags removed."""
+    tags = HiddenTagFilter()
+    parts: list[str] = []
+    for event in llm.stream_chat([Message("system", system), Message("user", user_text, images=list(images or []))], None, max_tokens=max_tokens):
+        if event.kind == "text":
+            parts.append(tags.feed(event.text))
+    parts.append(tags.flush())
+    return "".join(parts).strip()
 
 
 def render_tool_result(result: ToolResult) -> str:

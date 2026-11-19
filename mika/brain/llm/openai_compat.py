@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 from typing import Any, Iterator
@@ -31,7 +32,14 @@ class OpenAICompatProvider:
             float(config.get("read_timeout_seconds", 60)),
             connect=float(config.get("connect_timeout_seconds", 3)),
         )
-        self.client = client or httpx.Client(timeout=self.timeout)
+        self._client = client
+
+    @property
+    def client(self) -> httpx.Client:
+        """Created on first use, so building the provider chain at startup costs nothing."""
+        if self._client is None:
+            self._client = httpx.Client(timeout=self.timeout)
+        return self._client
 
     @property
     def api_key(self) -> str:
@@ -143,6 +151,12 @@ class OpenAICompatProvider:
         """Convert our Message to the OpenAI chat format (tool args as JSON text, results by call id)."""
         if message.role == "tool":
             return {"role": "tool", "tool_call_id": message.tool_call_id or "", "content": message.content}
+        if message.images:
+            parts: list[dict[str, Any]] = [{"type": "text", "text": message.content}]
+            for image in message.images:
+                data = base64.b64encode(image).decode("ascii")
+                parts.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{data}"}})
+            return {"role": message.role, "content": parts}
         wire: dict[str, Any] = {"role": message.role, "content": message.content}
         if message.role == "assistant" and message.tool_calls:
             wire["content"] = message.content or None
