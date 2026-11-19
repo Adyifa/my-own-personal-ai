@@ -231,6 +231,21 @@ Kalau Mika terlalu cepat memotong kalimat panjang, naikkan `pause_threshold` ke 
 - `halo mika aku lagi capek`
 - `halo mika cerita lucu`
 
+### Bahasa santai dan bahasa daerah
+
+Perintah tidak harus baku. Mika merapikan dulu kalimatnya sebelum dicocokkan, tanpa butuh AI, jadi tetap instan dan jalan offline:
+
+- slang Jakarta: `gue mau nonton smitty`, `gw pengen nonton video smitty di yt`, `nyariin…`, `liatin…`, `setelin…`
+- sapaan dan partikel: `kak cariin smitty di youtube ya`, `cariin dong video smitty di youtube`, `ane mau nonton smitty gan`
+- Sunda: `carikeun video smitty di youtube`, `aing hayang nonton smitty`
+- Jawa: `golekno video smitty nang youtube`, `goleki … neng youtube`, `tulung golekke … ning youtube`
+- ejaan hasil speech-to-text: `yutub`, `you tube`, `yt`, dan titik di akhir kalimat
+- perintah lain: `matiin laptop dong`, `berhentiin lagunya`, `lanjutin lagunya`, `pelanin suaranya ya`, `buka youtube terus cari smitty`
+
+Isi catatan, pengingat, dan ingatan tetap disimpan persis seperti yang kamu ucapkan: `kak catat liat jadwal kuliah ya` tersimpan sebagai "liat jadwal kuliah".
+
+Kalimat utuh dalam bahasa daerah yang tidak dikenali aturan diteruskan ke AI, jadi butuh model (Ollama atau API key) yang tersambung.
+
 ## Aksi penting pakai konfirmasi
 
 Perintah seperti shutdown, restart, sleep, lock, dan logout tidak langsung dijalankan. Mika akan bertanya konfirmasi dulu.
@@ -248,6 +263,8 @@ Yakin? Bilang iya untuk lanjut. Kalau tidak, bilang batal.
 ```
 
 Jawab `iya` untuk lanjut, atau `batal` untuk membatalkan.
+
+Jawaban santai juga dimengerti. Untuk lanjut, semua katanya harus setuju: `iya mika`, `oke gas`, `yakin`. Untuk batal, cukup satu kata penolakan: `gak jadi deh`, `nggak usah`, `jangan dulu`, `batalin aja`. Jawaban yang ragu seperti `ya udah` atau `iya tapi nanti` membuat Mika bertanya lagi, dan aksinya batal sendiri kalau tidak dijawab dalam beberapa detik.
 
 ## Wake phrase live
 

@@ -64,17 +64,20 @@ CHAT_RULES: list[tuple[str, list[str], set[str]]] = [
     ("tired", ["aku capek", "aku cape", "aku lelah", "lagi capek", "ngantuk"], set()),
     ("sad", ["aku sedih", "lagi sedih", "aku galau", "kesepian", "sendirian"], set()),
     ("stress", ["aku stres", "aku stress", "lagi stres", "lagi stress", "overthinking", "cemas", "panik"], set()),
-    ("chat_invite", ["ngobrol yuk", "temenin aku", "mika temenin", "aku mau curhat", "mau curhat", "curhat dong"], {"curhat"}),
+    ("chat_invite", ["ngobrol yuk", "temenin aku", "mika temenin", "aku mau curhat", "mau curhat", "curhat dong"],
+     {"curhat", "ngobrol", "temenin"}),  # the cleanup turns "ngobrol yuk" / "mika temenin" into one word
     ("joke", ["cerita lucu", "joke", "lawak", "candaan"], set()),
     ("capabilities", ["kamu bisa apa", "bisa apa", "fitur kamu", "apa yang bisa kamu lakukan"], set()),
     ("status", ["lagi ngapain", "kamu lagi apa", "status kamu", "aktif nggak", "aktif gak"], set()),
 ]
 
 SEARCH_REWRITES = [
-    (r"^(nonton|tonton)\s+(youtube\s+)?(tentang\s+)?(.+)$", r"cari \4 di youtube"),
-    (r"^lihat\s+(video\s+)?(.+)\s+di\s+youtube$", r"cari \2 di youtube"),
+    # The optional tail keeps "nonton X di youtube" from becoming "cari X di youtube di youtube".
+    (r"^(nonton|tonton)\s+(youtube\s+)?(tentang\s+)?(.+?)(\s+(di|ke|lewat|via)\s+youtube)?$", r"cari \4 di youtube"),
+    (r"^(lihat|liat|cek|intip)\s+(video\s+)?(.+)\s+di\s+youtube$", r"cari \3 di youtube"),
     (r"^(buka|putar|setel|play)\s+video\s+(.+?)(\s+di\s+youtube)?$", r"cari \2 di youtube"),
-    (r"^(buka|putar)\s+(.+?)\s+di\s+youtube$", r"cari \2 di youtube"),
+    (r"^(buka|putar|setel|play|mainkan)\s+(.+?)\s+di\s+youtube$", r"cari \2 di youtube"),
+    (r"^(buka|open)\s+youtube\s+(.+)$", r"cari \2 di youtube"),  # "bukain youtube smitty"
     (r"^youtube\s+(.+)$", r"cari \1 di youtube"),
     (r"^google\s+(.+)$", r"cari \1 di google"),
     (r"^googling\s+(.+)$", r"cari \1 di google"),
@@ -139,9 +142,11 @@ _RAIN_QUESTION = re.compile(r"\b(?:bakal|akan|mau|apakah|apa)\s+hujan\b|\bhujan\
 _NOT_WEATHER = {"cpu", "laptop", "prosesor", "komputer", "processor", "gpu"}
 MEDIA_COMMANDS = {
     "pause": ["pause", "jeda", "pause musik", "pause lagu", "pause lagunya", "pause dulu", "jeda musik", "jeda lagu",
-              "jeda dulu", "hentikan musik", "hentikan lagu", "stop musik", "stop lagu", "stop lagunya"],
+              "jeda dulu", "hentikan musik", "hentikan lagu", "stop musik", "stop lagu", "stop lagunya",
+              "stop musiknya", "hentikan musiknya", "hentikan lagunya", "matikan musiknya", "matikan lagunya"],
     "play": ["play", "resume", "lanjutkan musik", "lanjutkan lagu", "lanjutkan lagunya", "lanjut musik", "lanjut lagu",
-             "putar lagi", "play lagi", "play musik", "putar musiknya lagi", "nyalakan musik lagi"],
+             "putar lagi", "play lagi", "play musik", "putar musiknya lagi", "nyalakan musik lagi", "lanjutkan musiknya",
+             "lanjut lagunya"],
     "next": ["next", "skip", "lagu berikutnya", "lagu selanjutnya", "lagu lain", "ganti lagu", "lewati lagu", "skip lagu",
              "skip lagu ini", "next lagu", "lagu sesudahnya"],
     "previous": ["previous", "prev", "lagu sebelumnya", "lagu tadi", "kembali ke lagu sebelumnya", "balik ke lagu sebelumnya"],
@@ -165,6 +170,12 @@ _NOTE_READ = re.compile(
 _NOTE_OPEN = re.compile(r"^buka\s+(?:file\s+)?catatan(?:ku| aku| saya)?$")
 
 _EXPLICIT_PROVIDER = re.compile(r"(?:^|\s)(?:di|ke|pake|pakai|lewat|via)\s+(google|youtube|yt)(?:\s|$)")
+_OPEN_YOUTUBE_THEN = re.compile(r"^(?:buka|open)\s+youtube\s+(?:terus|trus|lalu|habis itu|abis itu|kemudian|dan)\s+(.+)$")
+_BROWSER_HINT = re.compile(r"^(?:di|pake|pakai|lewat|via|ke|dengan|dalam)\b")
+# Words after "buka youtube" / "nonton youtube" that are not a topic to search for.
+_FILLER_WORDS = {"aja", "saja", "ajah", "sekarang", "skrg", "dulu", "lagi", "lg", "dong", "deh", "ya", "yah", "sebentar",
+                 "bentar", "please", "plis", "yuk", "nih", "sih", "lah", "ah", "doang", "kembali", "mika",
+                 "terus", "trus", "lalu", "kemudian", "dan", "tentang"}  # "buka youtube terus" trailing off
 _FIRST_RESULT_PHRASES = ["nonton", "tonton", "buka video", "putar video", "hasil pertama"]
 
 
@@ -295,7 +306,7 @@ class Router:
 
         if command in _MEDIA_LOOKUP:
             return Route("rule", "media", {"action": _MEDIA_LOOKUP[command]})
-        if "volume" in words or command in {"mute", "unmute", "bisukan"} or ("suara" in words and _VOLUME_VERBS.search(command)):
+        if "volume" in words or command in {"mute", "unmute", "bisukan"} or ({"suara", "suaranya"} & words and _VOLUME_VERBS.search(command)):
             return Route("rule", "volume", {"text": command})
 
         if len(tokens) <= 6 and (_BATTERY_WORDS & words or _CHARGING.search(command)):
@@ -338,11 +349,21 @@ class Router:
 
     def _open_spotify(self) -> Route:
         """The installed Spotify app (Store or desktop), else a "spotify" website alias, else the web player."""
-        for intent, aliases in (("open_app", self.catalog.apps()), ("open_website", self.catalog.websites())):
-            for alias, value in aliases.items():
-                if normalize(alias) == "spotify":
+        found = self._first_alias("spotify", (("open_app", self.catalog.apps), ("open_website", self.catalog.websites)))
+        return found or Route("rule", "open_website", {"name": "spotify", "url": "https://open.spotify.com", "kind": "url"})
+
+    def _youtube_home(self) -> Route:
+        """The "youtube" website alias, else youtube.com."""
+        found = self._first_alias("youtube", (("open_website", self.catalog.websites),))
+        return found or Route("rule", "open_website", {"name": "youtube", "url": "https://www.youtube.com", "kind": "url"})
+
+    def _first_alias(self, name: str, sources) -> Route | None:
+        """Route to the first catalog entry named exactly `name`; catalogs are read in order and only when needed."""
+        for intent, aliases in sources:
+            for alias, value in aliases().items():
+                if normalize(alias) == name:
                     return _named_route(intent, alias, value)
-        return Route("rule", "open_website", {"name": "spotify", "url": "https://open.spotify.com", "kind": "url"})
+        return None
 
     def _match_file(self, command: str, tokens: list[str]) -> Route | None:
         """"buka/cari file|folder|dokumen X" → local file search."""
@@ -357,20 +378,35 @@ class Router:
 
     def _match_search(self, command: str, tokens: list[str]) -> Route | None:
         """"cari X di google/youtube" opens the browser; a plain "cari X" is answered by the agent."""
+        compound = _OPEN_YOUTUBE_THEN.match(command)
+        if compound:
+            command = f"{compound.group(1)} di youtube"  # "buka youtube terus cari smitty" → "cari smitty di youtube"
         original = command
+        opened = re.sub(r"^(buka|open)\s+", "", command)
+        if opened.startswith("youtube "):
+            rest = opened[len("youtube "):]
+            # "buka youtube music" is a site or app of its own; "buka youtube di chrome" names a browser, not a topic.
+            if _BROWSER_HINT.match(rest) or self._is_known_name(opened):
+                return None
         command = rewrite(command, SEARCH_REWRITES)
         if not command.startswith(tuple(f"{verb} " for verb in SEARCH_VERBS)):
             return None
         provider = explicit_provider(command)
         query = clean_search_query(strip_command_words(command))
+        if provider == "youtube" and set(query.split()) <= _FILLER_WORDS:
+            query = ""  # "buka youtube aja", "nonton youtube sekarang"
         if not query:
+            if provider == "youtube" and not original.startswith(tuple(f"{verb} " for verb in SEARCH_VERBS)):
+                return self._youtube_home()  # "nonton youtube" without a topic opens YouTube itself
             return Route("rule", "ask_search_query")
         if provider is None:
             if self.plain_search_mode == "answer":
                 return Route("agent", "web_answer", {"query": strip_info_words(query)})
             provider = normalize(str(self.config.get("search", {}).get("default_provider", "google"))) or "google"
-        if provider == "youtube" and should_open_first_youtube_result(original):
-            provider = "youtube_first"
+        if provider == "youtube":
+            query = re.sub(r"^(video|vidio|videonya)\s+(?!klip\b|clip\b)", "", query)  # all of YouTube is video
+            if should_open_first_youtube_result(original):
+                provider = "youtube_first"
         return Route("rule", "browser_search", {"provider": provider, "query": query})
 
     def _match_named_target(self, command: str, tokens: list[str]) -> Route | None:
@@ -440,6 +476,11 @@ class Router:
                 return _named_route("open_app", alias, value)
         return None
 
+    def _is_known_name(self, name: str) -> bool:
+        """True if the whole phrase is a site, app, or game alias. Catalogs are read lazily, websites first."""
+        sources = (self.catalog.websites, self.catalog.apps, self.catalog.games)
+        return any(normalize(alias) == name for source in sources for alias in source())
+
     def _is_game(self, name: str) -> bool:
         """True if the name is a known game (so "mainkan cs2" is not a song)."""
         name = normalize(name)
@@ -489,20 +530,24 @@ def should_open_first_youtube_result(command: str) -> bool:
     """"nonton X" / "putar video X" plays the top video instead of listing results."""
     if any(phrase in command for phrase in _FIRST_RESULT_PHRASES):
         return True
-    return command.startswith(("buka ", "putar ", "setel ", "play ")) and "youtube" in command
+    return command.startswith(("buka ", "putar ", "setel ", "play ", "mainkan ")) and "youtube" in command
 
 
 def clean_search_query(query: str) -> str:
     """Strip "cari" and "di google/youtube" so only the search terms remain."""
     query = normalize(query)
-    for pattern in [
-        r"^(tolong\s+)?(cari|search|telusuri|googling)\s+",
-        r"^(di\s+)?(google|youtube|yt)\s+",
-        r"\s+(di|ke|pake|pakai|lewat|via)\s+(google|youtube|yt)$",
-        r"\s+(google|youtube|yt)$",
-    ]:
-        query = re.sub(pattern, "", query).strip()
-    return re.sub(r"\s+", " ", query).strip()
+    previous = None
+    while previous != query:  # repeated, so a doubled "di youtube di youtube" leaves nothing behind
+        previous = query
+        for pattern in [
+            r"^(tolong\s+)?(cari|search|telusuri|googling)\s+",
+            r"^(di\s+)?(google|youtube|yt)\s+",
+            r"\s+(di|ke|pake|pakai|lewat|via)\s+(google|youtube|yt)$",
+            r"\s+(google|youtube|yt)$",
+        ]:
+            query = re.sub(pattern, "", query).strip()
+    query = re.sub(r"\s+", " ", query).strip()
+    return "" if query in {"di", "ke", "pake", "pakai", "lewat", "via"} else query  # "nonton youtube" has no query
 
 
 def strip_info_words(query: str) -> str:

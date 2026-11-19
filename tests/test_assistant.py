@@ -50,6 +50,14 @@ def test_buka_youtube_takes_the_fast_path(config, speaker, launcher):
     assert llm.calls == []  # never waits for the model
 
 
+def test_javanese_youtube_request_takes_the_fast_path(config, speaker, launcher):
+    llm = ScriptedLLM()
+    assistant = make(config, speaker, launcher, llm)
+    assistant.handle("halo mika kak golekno video smitty nang yutub ya")
+    assert launcher.opened_urls == ["https://www.youtube.com/results?search_query=smitty"]
+    assert llm.calls == []  # understood without the model, so it also works offline
+
+
 def test_question_goes_to_the_agent_and_opens_follow_up_window(config, speaker, launcher):
     llm = ScriptedLLM(text("Ibu kota Indonesia sekarang masih Jakarta secara hukum."))
     assistant = make(config, speaker, launcher, llm)
@@ -300,3 +308,67 @@ def test_stop_during_a_skill_reply_cancels_its_action(config, speaker, launcher,
     speaker.say = say_and_get_interrupted
     assistant.handle("matikan suara")
     assert everyday.endpoint.muted == 0
+
+
+# Casual and regional speech end to end ---------------------------------------------------
+
+
+def test_slang_shutdown_still_waits_for_a_spoken_yes(config, speaker, launcher, power_calls):
+    assistant = make(config, speaker, launcher, power_calls=power_calls)
+    assistant.handle("halo mika matiin laptop dong")
+    assert power_calls == [] and assistant.pending_action is not None
+    assistant.handle("iya mika")
+    assert power_calls == ["shutdown"]
+
+
+@pytest.mark.parametrize("answer", ["gak jadi deh", "nggak usah", "batalin aja", "jangan dulu", "udah gak usah"])
+def test_casual_no_cancels_the_pending_action(config, speaker, launcher, power_calls, answer):
+    assistant = make(config, speaker, launcher, power_calls=power_calls)
+    assistant.handle("restart laptop")
+    assistant.handle(answer)
+    assert power_calls == [] and assistant.pending_action is None
+    assert "batalin" in speaker.said[-1]  # the persona words it ("Oke, Mika batalin.")
+
+
+@pytest.mark.parametrize("answer", ["ya udah", "iya tapi nanti", "terserah"])
+def test_unclear_answer_keeps_asking(config, speaker, launcher, power_calls, answer):
+    assistant = make(config, speaker, launcher, power_calls=power_calls)
+    assistant.handle("restart laptop")
+    assistant.handle(answer)
+    assert power_calls == [] and assistant.pending_action is not None
+
+
+def test_slang_reminder_follow_up(config, speaker, launcher, everyday):
+    assistant = make(config, speaker, launcher, hub=everyday.hub)
+    assistant.handle("halo mika ingetin aku minum obat")
+    assert speaker.said[-1] == "Mau diingatkan kapan?"
+    assistant.handle("jam sembilan malam ya")
+    assert speaker.said[-1] == "Oke, Mika ingatkan minum obat jam 9 malam."
+
+
+def test_casual_note_keeps_the_users_own_words(config, speaker, launcher, everyday):
+    assistant = make(config, speaker, launcher, hub=everyday.hub)
+    assistant.handle("halo mika kak catat liat jadwal kuliah ya")
+    assert speaker.said[-1] == "Oke, sudah Mika catat: liat jadwal kuliah."
+
+
+def test_slang_volume_and_media(config, speaker, launcher, everyday):
+    from mika.skills.media import VK_MEDIA_PLAY_PAUSE
+
+    assistant = make(config, speaker, launcher, hub=everyday.hub)
+    assistant.handle("pelanin suaranya ya")
+    assert everyday.endpoint.level == pytest.approx(0.2)
+    assistant.handle("berhentiin lagunya")
+    assert everyday.keys == [VK_MEDIA_PLAY_PAUSE]
+
+
+def test_youtube_with_filler_or_a_second_step(config, speaker, launcher):
+    assistant = make(config, speaker, launcher)
+    assistant.handle("bukain youtube aja")
+    assistant.handle("buka youtube terus cari smitty")
+    assistant.handle("nonton youtube")
+    assert launcher.opened_urls == [
+        "https://www.youtube.com",
+        "https://www.youtube.com/results?search_query=smitty",
+        "https://www.youtube.com",
+    ]

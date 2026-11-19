@@ -28,6 +28,18 @@ class LaunchMatch:
 
 _SKIP_ALIAS_PREFIXES = ("uninstall", "hapus instalasi", "remove", "readme", "help")
 _NAME_FILLER = re.compile(r"^(aplikasi|app|program|game|website|situs|web)\s+")
+# Start Menu entries that are not apps. Uninstallers must never start by voice ("buka ... uninstall ..."), and a
+# bare "Website" or "Documentation" shortcut would hijack "buka website detik.com".
+_UNINSTALL_WORDS = {"uninstall", "uninstaller", "remove", "hapus"}
+_GENERIC_ENTRIES = {"website", "web site", "documentation", "docs", "release notes", "readme", "read me", "manual",
+                    "license", "help", "general help", "online help", "support", "changelog", "user guide", "homepage",
+                    "home page"}
+
+
+def is_app_name(alias: str) -> bool:
+    """False for uninstallers and generic entries found during discovery (user aliases are never filtered)."""
+    words = alias.split()
+    return bool(words) and words[0] not in _UNINSTALL_WORDS and alias not in _GENERIC_ENTRIES
 
 # Indonesian words and common abbreviations for apps whose Start Menu names are English.
 # Added only when the app itself was discovered, so they never point at something missing.
@@ -78,7 +90,7 @@ def scan_start_apps(runner: Callable[[], str] = _powershell_start_apps) -> dict[
         if not isinstance(row, dict):
             continue
         name, app_id = normalize(str(row.get("Name", ""))), str(row.get("AppID", "")).strip()
-        if name and app_id:
+        if name and app_id and is_app_name(name):
             apps.setdefault(name, f"shell:AppsFolder\\{app_id}")
     return apps
 
@@ -313,7 +325,7 @@ def scan_shortcuts(roots: list[Path]) -> dict[str, str]:
             try:
                 for path in root.rglob(pattern):
                     alias = normalize(path.stem)
-                    if alias and alias not in shortcuts:
+                    if alias and alias not in shortcuts and is_app_name(alias):
                         shortcuts[alias] = str(path)
             except OSError:
                 continue

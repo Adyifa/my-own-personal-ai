@@ -207,3 +207,122 @@ def test_conversational_cleanup():
     assert clean_conversational_command("tolong bukain youtube dong") == "buka youtube"
     assert clean_conversational_command("aku mau main cs2 dong") == "main cs2"
     assert clean_conversational_command("cariin resep rendang ya") == "cari resep rendang"
+
+
+# Jakarta slang, Kaskus, Sundanese, Javanese, and speech-to-text spellings of one request.
+@pytest.mark.parametrize(
+    ("utterance", "provider"),
+    [
+        ("cari video smitty di youtube", "youtube"),
+        ("cariin video smitty di youtube", "youtube"),
+        ("tolong cariin video smitty di yutub dong", "youtube"),
+        ("nyariin video smitty di youtube", "youtube"),
+        ("gue mau nonton smitty", "youtube_first"),
+        ("gw pengen nonton video smitty di yt", "youtube_first"),
+        ("liatin video smitty di youtube dong", "youtube"),
+        ("puterin video smitty dong", "youtube_first"),
+        ("setelin smitty di youtube", "youtube_first"),
+        ("bukain youtube smitty", "youtube_first"),
+        ("coba cek video smitty di youtube", "youtube"),
+        ("cariin dong video smitty di youtube", "youtube"),
+        ("kak cariin smitty di youtube ya", "youtube"),
+        ("bisa gak cariin video smitty di youtube", "youtube"),
+        ("nonton smitty yuk", "youtube_first"),
+        ("pengen liat smitty di youtube", "youtube"),
+        ("ane mau nonton smitty gan", "youtube_first"),
+        ("cari smitty di you tube", "youtube"),
+        ("cari video smitty di YouTube.", "youtube"),
+        ("carikeun video smitty di youtube", "youtube"),
+        ("aing hayang nonton smitty", "youtube_first"),
+        ("golekno video smitty nang youtube", "youtube"),
+        ("goleki video smitty neng youtube", "youtube"),
+        ("tulung golekke video smitty ning youtube", "youtube"),
+        ("aku pengen nonton smitty nang youtube", "youtube_first"),
+    ],
+)
+def test_slang_and_regional_youtube_requests(config, launcher, utterance, provider):
+    route = route_of(config, launcher, utterance)
+    assert (route.path, route.intent, route.args) == ("rule", "browser_search", {"provider": provider, "query": "smitty"})
+
+
+def test_slang_cleanup_keeps_content_words():
+    assert clean_conversational_command("nonton wayang golek") == "nonton wayang golek"  # a puppet, not "cari"
+    assert clean_conversational_command("putar lagu ya sudahlah") == "putar lagu ya sudahlah"
+    assert clean_conversational_command("ingatkan aku telepon kak") == "ingatkan aku telepon kak"
+    assert clean_conversational_command("catat beli kado buat mika") == "catat beli kado buat mika"
+    assert clean_conversational_command("buka https://kompas.com") == "buka https://kompas.com"
+
+
+def test_notes_and_reminders_keep_the_users_own_words():
+    # Only the polite layers go; the content is stored as said ("liat", not "lihat"; "yt", not "youtube").
+    assert clean_conversational_command("kak catat liat jadwal kuliah ya") == "catat liat jadwal kuliah"
+    assert clean_conversational_command("ingatkan aku nonton yt jam 8") == "ingatkan aku nonton yt jam 8"
+    assert clean_conversational_command("gue mau catat beli susu dong") == "catat beli susu"
+    assert clean_conversational_command("matiin laptop dong") == "matikan laptop"
+
+
+def test_small_talk_survives_the_slang_cleanup(config, launcher):
+    assert route_of(config, launcher, "ngobrol yuk").args["category"] == "chat_invite"
+    assert route_of(config, launcher, "mika temenin").args["category"] == "chat_invite"
+    assert route_of(config, launcher, "gue mau tidur").args["category"] == "night"
+
+
+def test_youtube_alias_with_a_second_word_is_not_a_search(config, launcher):
+    config["websites"]["youtube music"] = "https://music.youtube.com"
+    route = route_of(config, launcher, "buka youtube music")
+    assert (route.intent, route.args["url"]) == ("open_website", "https://music.youtube.com")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "buka youtube aja",
+        "buka youtube sekarang",
+        "buka youtube lagi",
+        "buka youtube di chrome",
+        "buka youtube pake chrome",
+        "buka youtube terus",
+        "nonton youtube",  # used to search YouTube for the leftover word "di" and play the first result
+        "nonton youtube aja",
+        "nonton yt",
+    ],
+)
+def test_youtube_without_a_topic_opens_youtube_itself(config, launcher, utterance):
+    route = route_of(config, launcher, utterance)
+    assert (route.intent, route.args["url"]) == ("open_website", "https://www.youtube.com")
+
+
+def test_searching_youtube_for_nothing_asks_what_to_find(config, launcher):
+    assert route_of(config, launcher, "cari di youtube").intent == "ask_search_query"
+
+
+@pytest.mark.parametrize(
+    ("utterance", "provider", "query"),
+    [
+        ("buka youtube terus cari smitty", "youtube", "smitty"),
+        ("buka youtube lalu putar smitty", "youtube_first", "smitty"),
+        ("mainkan smitty di youtube", "youtube_first", "smitty"),
+        ("cari video klip dewa 19 di youtube", "youtube", "video klip dewa 19"),  # "video klip" is one thing
+    ],
+)
+def test_youtube_search_details(config, launcher, utterance, provider, query):
+    route = route_of(config, launcher, utterance)
+    assert (route.intent, route.args) == ("browser_search", {"provider": provider, "query": query})
+
+
+@pytest.mark.parametrize(
+    ("utterance", "intent", "action"),
+    [
+        ("stop musiknya", "media", "pause"),
+        ("berhentiin lagunya", "media", "pause"),
+        ("lanjutin lagunya", "media", "play"),
+        ("matiin laptop dong", "power", "shutdown"),
+    ],
+)
+def test_slang_media_and_power(config, launcher, utterance, intent, action):
+    route = route_of(config, launcher, utterance)
+    assert (route.intent, route.args["action"]) == (intent, action)
+
+
+def test_slang_volume(config, launcher):
+    assert route_of(config, launcher, "pelanin suaranya ya").intent == "volume"

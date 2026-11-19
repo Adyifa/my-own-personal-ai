@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 from mika.brain.router import Router
-from mika.skills.launcher import scan_start_apps
+from mika.skills.launcher import scan_shortcuts, scan_start_apps
 from mika.text import clean_conversational_command
 from tests.fakes import FakeSpeaker, RecordingLauncher, ScriptedLLM
 from tests.test_assistant import make
@@ -179,3 +179,22 @@ def test_buka_whatsapp_opens_the_store_app_without_the_llm(store_config, store_l
     assert store_launcher.started_files == [WHATSAPP]
     assert speaker.said == ["Oke, Mika bukain whatsapp ya."]
     assert llm.calls == []
+
+
+# Discovery filter -------------------------------------------------------------------------
+
+
+def test_uninstallers_and_generic_entries_are_not_apps(tmp_path):
+    # Found on the target laptop: "Uninstall" (MuMuPlayer), "Website" (HeidiSQL), "Documentation" (VLC).
+    for name in ["VLC media player.lnk", "Uninstall.lnk", "Uninstall XAMPP.lnk", "Website.url", "Documentation.lnk",
+                 "Release Notes.lnk", "Node.js website.url"]:
+        (tmp_path / name).write_text("")
+    assert set(scan_shortcuts([tmp_path])) == {"vlc media player", "node.js website"}
+
+    output = '[{"Name":"Uninstall Foo","AppID":"a"},{"Name":"Website","AppID":"b"},{"Name":"WhatsApp","AppID":"c"}]'
+    assert set(scan_start_apps(lambda: output)) == {"whatsapp"}
+
+
+def test_buka_website_with_a_domain_opens_that_domain(config, launcher):
+    route = route_of(config, launcher, "buka website detik.com")
+    assert (route.intent, route.args["url"]) == ("open_website", "https://detik.com")
