@@ -218,7 +218,7 @@ _DEVICE_WORDS = {"laptop", "laptopku", "hp", "hpku", "handphone", "baterai", "ba
 # "jangan matikan laptop": a negated action is acknowledged, never executed.
 _NEGATED = re.compile(r"^(?:jangan|gak usah|nggak usah|ga usah|enggak usah|tidak usah|gak jadi|nggak jadi|ga jadi"
                       r"|enggak jadi|tidak jadi|gak perlu|nggak perlu|tidak perlu)\s+(?P<rest>.+)$")
-_ACTION_INTENTS = {"power", "disk_clean", "open_app", "open_game", "open_website", "open_file", "open_file_alias",
+_ACTION_INTENTS = {"sequence", "power", "disk_clean", "open_app", "open_game", "open_website", "open_file", "open_file_alias",
                    "browser_search", "music", "media", "volume", "timer_set", "timer_cancel", "reminder_set",
                    "reminder_cancel", "snooze", "note_add", "memory_add", "memory_forget", "memory_forget_all", "screen",
                    "clipboard"}
@@ -226,6 +226,40 @@ _ACTION_INTENTS = {"power", "disk_clean", "open_app", "open_game", "open_website
 _POWER_QUESTION = re.compile(r"^(?:cara|gimana|bagaimana|kenapa|mengapa|apa|apakah|kok|kapan|bisa nggak|bisakah)\b|\bcaranya\b")
 _POWER_LATER = re.compile(r"\b(?:kalau|kalo|jika|setelah|sesudah|nanti|habis|abis|sebelum|tunggu|besok|malam ini)\b"
                           r"|\b(?:menit|jam|detik)\s+lagi\b|\b(?:sejam|semenit)\b|\bjam\s+\d")
+
+# Curhat: a personal topic with "aku/-ku" or a feeling word. Online the AI answers as a listening friend; offline Mika
+# answers with a listening template instead of "belum masuk command".
+_CURHAT_TOPICS = {
+    "work": {"kerja", "kerjaan", "kerjaanku", "pekerjaan", "kantor", "bos", "atasan", "atasanku", "manajer", "rekan",
+             "kolega", "gaji", "gajiku", "lembur", "resign", "dipecat", "phk", "klien", "deadline", "kuliah", "dosen",
+             "skripsi", "tugas", "ujian", "sekolah", "guru"},
+    "love": {"pacar", "pacarku", "cowokku", "cewekku", "gebetan", "mantan", "putus", "selingkuh", "pdkt", "nikah",
+             "tunangan", "suami", "suamiku", "istri", "istriku", "ldr", "jodoh", "crush", "ditolak", "diselingkuhi"},
+    "family": {"ibu", "ibuku", "ayah", "ayahku", "bapak", "bapakku", "mama", "mamaku", "papa", "papaku", "mamah",
+               "papah", "bunda", "ortu", "ortuku", "keluarga", "keluargaku", "adik", "adikku", "kakak", "kakakku",
+               "abang", "nenek", "kakek", "mertua", "anakku"},
+    "friend": {"teman", "temanku", "temen", "temenku", "sahabat", "sahabatku", "bestie", "geng"},
+}
+_FEELINGS = re.compile(
+    r"\b(?:sedih|kecewa|marah|kesel|kesal|takut|cemas|khawatir|bingung|gagal|insecure|iri|kesepian|sendirian|stres"
+    r"|stress|capek|cape|lelah|down|hancur|nyesel|menyesal|galau|overthinking|nangis|menangis|sakit hati|dihargai"
+    r"|berantem|bertengkar|ribut|dimarahin|dimarahi|ditinggal|kangen|rindu|susah|berat|pusing|muak|benci|malu|minder"
+    r"|frustasi|frustrasi|tertekan|sakit|tidur)\b"
+)
+_FIRST_PERSON = re.compile(r"\b(?:aku|gue|gw|saya)\b|\w{3,}ku\b")
+_ADVICE_ASK = re.compile(r"\b(?:menurut kamu|menurutmu|harus gimana|harus bagaimana|sebaiknya aku|butuh saran|minta saran"
+                         r"|kasih saran)\b")
+
+# "X terus Y": two or three commands in one sentence, each routed on its own and run in order.
+_CONNECTOR = re.compile(r"\s+(?:terus|trus|lalu|habis itu|abis itu|kemudian|setelah itu|sesudah itu|abis tu|habis tu)\s+")
+_STEP_VERBS = re.compile(
+    r"^(?:buka|putar|setel|play|mainkan|main|cari|nonton|tonton|lihat|cek|matikan|nyalakan|hidupkan|kunci|restart|sleep"
+    r"|ingatkan|ingetin|bangunin|catat|catet|pasang|hapus|bersihkan|kosongkan|kecilkan|kecilin|naikkan|naikin|turunkan"
+    r"|turunin|kerasin|pelanin|mute|pause|jeda|lanjutkan|next|skip|bacakan|bacain|baca|rangkum|terjemahkan|jalankan"
+    r"|open|search|googling|kirim|tutup|hentikan|stop|dengerin)\b"
+)
+_CONFIRM_INTENTS = {"power", "disk_clean", "memory_forget_all"}
+_MAX_STEPS = 3
 
 _EXPLICIT_PROVIDER = re.compile(r"(?:^|\s)(?:di|ke|pake|pakai|lewat|via)\s+(google|youtube|yt)(?:\s|$)")
 _OPEN_YOUTUBE_THEN = re.compile(r"^(?:buka|open)\s+youtube\s+(?:terus|trus|lalu|habis itu|abis itu|kemudian|dan)\s+(.+)$")
@@ -275,6 +309,9 @@ class Router:
             return Route("rule", "conversation_stop")
         if command in OPEN_VERBS:
             return Route("rule", "ask_target")
+        sequence = self._match_sequence(command)
+        if sequence is not None:
+            return sequence
 
         for matcher in (
             self._match_power,
@@ -290,7 +327,8 @@ class Router:
             if route is not None:
                 return route
 
-        category = classify_chat(command)
+        # Specific curhat topics before small talk ("aku capek banget sama kerjaan" is about work, not just tiredness).
+        category = curhat_topic(command) or classify_chat(command) or curhat_feeling(command)
         if category:
             return Route("agent", "chat", {"category": category})
         if tokens[0] in OPEN_VERBS:
@@ -298,6 +336,30 @@ class Router:
         return Route("agent", "general")
 
     # Matchers ---------------------------------------------------------------------------
+
+    def _match_sequence(self, command: str) -> Route | None:
+        """"buka spotify terus putar lagu tulus" → each part routed on its own; None when it is really one request."""
+        youtube_then = _OPEN_YOUTUBE_THEN.match(command)
+        if youtube_then and re.match(r"(?:cari|putar|nonton|tonton|setel|play|lihat|mainkan|search)\b", youtube_then.group(1)):
+            return None  # "buka youtube terus cari X" is one YouTube search; "... terus matikan laptop" is two steps
+        parts = [part.strip() for part in _CONNECTOR.split(command) if part.strip()]
+        joined_by_dan = len(parts) < 2
+        if joined_by_dan:
+            parts = [part.strip() for part in command.split(" dan ") if part.strip()]
+        if not 2 <= len(parts) <= _MAX_STEPS or not all(_STEP_VERBS.match(part) for part in parts[1:]):
+            return None  # "catat rapat terus makan siang" is one note, not two commands
+        steps = [(part, self.route(part)) for part in parts]
+        paths = [route.path for _, route in steps]
+        if joined_by_dan and "agent" in paths:
+            return None  # "dan" also joins nouns ("dia dan indahkus"): split only when both halves are commands
+        if all(path == "agent" for path in paths):
+            return None  # the AI understands the whole sentence better than its pieces
+        if any(route.intent in _CONFIRM_INTENTS for _, route in steps[:-1]) or any(route.intent == "sequence" for _, route in steps):
+            return None  # a "Yakin?" step can only come last, and sequences do not nest
+        steps = _drop_redundant_opens(steps)
+        if len(steps) == 1:
+            return steps[0][1]
+        return Route("rule", "sequence", {"steps": [{"text": text, "route": route} for text, route in steps]})
 
     def _match_power(self, command: str, tokens: list[str]) -> Route | None:
         """Shutdown/restart/sleep/lock/logout (always confirmed by voice before running)."""
@@ -645,6 +707,43 @@ def _named_route(intent: str, alias: str, value: str) -> Route:
     if intent == "open_file_alias":
         return Route("rule", intent, {"name": alias, "path": value})
     return Route("rule", intent, {"name": alias, "target": value})
+
+
+def _drop_redundant_opens(steps: list[tuple[str, Route]]) -> list[tuple[str, Route]]:
+    """"buka spotify terus putar lagu X": the search opens Spotify anyway, so the separate open step is dropped."""
+    kept = []
+    for index, (text, route) in enumerate(steps):
+        following = steps[index + 1][1] if index + 1 < len(steps) else None
+        name = normalize(str(route.args.get("name", "")))
+        if following is not None and (
+            (route.intent == "open_app" and name == "spotify" and following.intent == "music")
+            or (route.intent == "open_website" and name == "youtube" and following.intent == "browser_search"
+                and str(following.args.get("provider", "")).startswith("youtube"))
+            or (route.intent == "open_website" and name == "google" and following.intent == "browser_search"
+                and following.args.get("provider") == "google")
+        ):
+            continue
+        kept.append((text, route))
+    return kept
+
+
+def curhat_topic(command: str) -> str | None:
+    """Work, love, family, or friends, said personally ("bos aku marah terus"), or a request for advice."""
+    first_person = bool(_FIRST_PERSON.search(command))
+    if first_person and _ADVICE_ASK.search(command):
+        return "curhat_advice"
+    words = set(command.split())
+    if not (first_person or _FEELINGS.search(command)):
+        return None
+    for topic, lexicon in _CURHAT_TOPICS.items():
+        if words & lexicon or (topic == "family" and contains_phrase(command, "orang tua")):
+            return f"curhat_{topic}"
+    return None
+
+
+def curhat_feeling(command: str) -> str | None:
+    """A feeling said in the first person ("aku ngerasa gagal") after small talk had no better template."""
+    return "curhat_feeling" if _FIRST_PERSON.search(command) and _FEELINGS.search(command) else None
 
 
 def classify_chat(command: str) -> str | None:

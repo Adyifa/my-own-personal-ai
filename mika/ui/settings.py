@@ -8,7 +8,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
 from ..config import CONFIG_PATH, DEFAULT_CONFIG, apply_personality_preset, deep_merge
-from ..persona import VOICE_PERSONALITY_PRESETS
+from ..persona import ADVICE_STYLES, HUMOR_LEVELS, REGISTERS, VOICE_PERSONALITY_PRESETS
 
 
 class SettingsWindow:
@@ -25,15 +25,18 @@ class SettingsWindow:
 
         self.general_tab = ttk.Frame(self.notebook)
         self.voice_tab = ttk.Frame(self.notebook)
+        self.persona_tab = ttk.Frame(self.notebook)
         self.shortcuts_tab = ttk.Frame(self.notebook)
         self.raw_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.general_tab, text="General")
         self.notebook.add(self.voice_tab, text="Suara & AI")
+        self.notebook.add(self.persona_tab, text="Kepribadian")
         self.notebook.add(self.shortcuts_tab, text="Shortcuts")
         self.notebook.add(self.raw_tab, text="Raw JSON")
 
         self.build_general_tab()
         self.build_voice_tab()
+        self.build_persona_tab()
         self.build_shortcuts_tab()
         self.build_raw_tab()
         self.build_footer()
@@ -172,6 +175,11 @@ class SettingsWindow:
         self.vision_model.set(str(vision.get("ollama_model", "qwen2.5vl:3b")))
         self.vision_cloud.set(bool(vision.get("allow_cloud", False)))
         self.morning_briefing.set(bool(self.config.get("briefing", {}).get("on_good_morning", True)))
+        persona = self.config.get("persona", {})
+        self.user_name.set(str(persona.get("user_name", "")))
+        self.register.set(str(persona.get("register", "santai")))
+        self.advice.set(str(persona.get("advice", "tanya_dulu")))
+        self.humor.set(str(persona.get("humor", "sedikit")))
         self.refresh_shortcuts()
         self.refresh_raw()
 
@@ -198,6 +206,11 @@ class SettingsWindow:
         vision = self.config.setdefault("vision", {})
         vision["ollama_model"] = self.vision_model.get().strip() or "qwen2.5vl:3b"
         vision["allow_cloud"] = bool(self.vision_cloud.get())
+        persona = self.config.setdefault("persona", {})
+        persona["user_name"] = self.user_name.get().strip()
+        persona["register"] = self.register.get() or "santai"
+        persona["advice"] = self.advice.get() or "tanya_dulu"
+        persona["humor"] = self.humor.get() or "sedikit"
         self.config.setdefault("briefing", {})["on_good_morning"] = bool(self.morning_briefing.get())
 
     def build_voice_tab(self) -> None:
@@ -239,6 +252,35 @@ class SettingsWindow:
         ttk.Checkbutton(frame, text="Briefing pagi saat aku bilang 'selamat pagi'", variable=self.morning_briefing).grid(
             row=row + 2, column=1, sticky="w", pady=4
         )
+        frame.columnconfigure(1, weight=1)
+
+    def build_persona_tab(self) -> None:
+        """How Mika talks to you, everywhere: templates, confirmations, curhat, and the AI's answers."""
+        frame = ttk.Frame(self.persona_tab, padding=12)
+        frame.pack(fill="both", expand=True)
+        self.user_name = tk.StringVar()
+        self.register = tk.StringVar()
+        self.advice = tk.StringVar()
+        self.humor = tk.StringVar()
+        ttk.Label(frame, text="Panggil aku").grid(row=0, column=0, sticky="w", pady=(10, 2))
+        ttk.Entry(frame, textvariable=self.user_name, width=30).grid(row=0, column=1, sticky="w", pady=(10, 2))
+        ttk.Label(frame, text="Kosongkan kalau cukup dipanggil 'kamu'.", foreground="#555").grid(row=1, column=1, sticky="w")
+        choices = [
+            ("Gaya bahasa", self.register, list(REGISTERS),
+             "santai: aku-kamu. gaul: gue-lo. sopan: saya-Anda, bahasa baku."),
+            ("Saat curhat", self.advice, list(ADVICE_STYLES),
+             "tanya_dulu: Mika tanya dulu kamu mau saran atau cuma didengar. langsung: boleh langsung kasih saran. "
+             "dengar_saja: tanpa saran kecuali diminta. Keputusan selalu di tanganmu."),
+            ("Humor", self.humor, list(HUMOR_LEVELS), "Mika berhenti bercanda saat kamu sedih atau serius."),
+        ]
+        row = 2
+        for label, variable, values, hint in choices:
+            ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", pady=(10, 2))
+            ttk.Combobox(frame, textvariable=variable, values=values, state="readonly", width=20).grid(
+                row=row, column=1, sticky="w", pady=(10, 2)
+            )
+            ttk.Label(frame, text=hint, foreground="#555", wraplength=480).grid(row=row + 1, column=1, sticky="w")
+            row += 2
         frame.columnconfigure(1, weight=1)
 
     def on_preset_select(self, event=None) -> None:

@@ -145,7 +145,7 @@
   },
   "music": {
     "provider": "spotify",
-    "open_mode": "web",
+    "open_mode": "auto",
     "songs": {
       "malu malu": "Malu Malu Dia Indahkus"
     }
@@ -271,6 +271,12 @@
       "https://www.republika.co.id/rss",
       "https://www.cnbcindonesia.com/news/rss"
     ]
+  },
+  "persona": {
+    "user_name": "",
+    "register": "santai",
+    "advice": "tanya_dulu",
+    "humor": "sedikit"
   },
   "memory": {
     "enabled": true,

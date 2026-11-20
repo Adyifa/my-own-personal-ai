@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from ..skills.browser import search_url, spotify_url
+from ..skills.browser import has_spotify_app, search_url, spotify_url
 from ..skills.hub import SkillHub, SkillReply
 from ..skills.launcher import Launcher
 from ..skills.power import POWER_LABELS
@@ -146,7 +146,7 @@ def build_default_tools(
 
     def play_music(query: str) -> ToolResult:
         """Open a Spotify search for a song, artist, or mood."""
-        launcher.open_url(spotify_url(config, query))
+        launcher.open_url(spotify_url(config, query, app_installed=has_spotify_app(launcher)))
         return ToolResult(
             True,
             {"spotify": query},

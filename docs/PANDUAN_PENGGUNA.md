@@ -343,6 +343,33 @@ selesai ngobrol
 
 Mode ngobrol ini tetap pendek supaya Mika tidak terlalu sensitif menangkap suara random.
 
+## Kepribadian Mika
+
+Cara Mika bicara diatur sekali dan berlaku untuk semua fitur: balasan tetap, konfirmasi, pesan error, curhat, dan jawaban AI. Buka Settings, lalu tab **Kepribadian**:
+
+- **Panggil aku**: namamu, misalnya `Yasa`. Mika memakainya saat menyapa dan berterima kasih ("Halo Yasa, Mika di sini.").
+- **Gaya bahasa**: `santai` (aku-kamu), `gaul` (gue-lo), atau `sopan` (saya-Anda, bahasa baku).
+- **Saat curhat**: `tanya_dulu` (Mika tanya dulu kamu mau saran atau cuma didengar), `langsung`, atau `dengar_saja`.
+- **Humor**: `tidak`, `sedikit`, atau `banyak`. Mika berhenti bercanda saat kamu sedih atau serius.
+
+Keputusan selalu di tanganmu: kalau Mika memberi saran, bentuknya pilihan beserta untung-ruginya.
+
+### Curhat
+
+Kamu bisa cerita soal kerjaan, kuliah, pacar, keluarga, atau teman. Kalau AI aktif, Mika menanggapi sebagai teman ngobrol. Kalau AI belum tersambung, Mika tetap mendengarkan dengan balasan yang lembut dan kamu bisa lanjut bercerita tanpa kata panggil, tapi Mika belum bisa memahami isi ceritanya. Ingatan percakapan dan saran yang lebih personal menyusul di tahap berikutnya.
+
+### Dua perintah sekaligus
+
+Sambungkan dengan `terus`, `lalu`, `habis itu`, atau `kemudian` (atau `dan`, kalau dua-duanya perintah):
+
+```text
+halo mika matikan suara terus kunci laptop
+halo mika buka spotify terus putar lagu tulus
+halo mika catat beli susu dan ingatkan jam 5
+```
+
+Mika menjalankannya berurutan. Aksi yang butuh konfirmasi (shutdown, kunci laptop, hapus cache) hanya boleh di urutan terakhir, dan catatan yang isinya mengandung kata `terus` tetap jadi satu catatan. Kalau aplikasi Spotify terpasang, pencarian lagu langsung dibuka di aplikasinya.
+
 ## Settings GUI
 
 Buka dari tray Mika dengan menu `Settings`, atau jalankan:

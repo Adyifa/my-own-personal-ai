@@ -601,17 +601,27 @@ nggak usah buka spotify => not:open_app,music
 jangan matiin suaranya => not:volume
 gak jadi restart => not:power
 
-# compound — two requests in one sentence (ideally the AI plans both steps)
-buka spotify terus putar lagu tulus => agent
-buka youtube lalu matikan laptop => agent | rule:power
-nyalakan timer 5 menit terus putar lagu => agent | rule:timer_set
-cek cuaca dan berita hari ini => agent | rule:weather | rule:news
-ingatkan aku jam 7 dan putar lagu santai => rule:reminder_set | agent
-buka chrome terus cari resep rendang => agent
-catat beli susu dan ingatkan jam 5 => rule:note_add | agent
-matikan suara terus kunci laptop => rule:power | rule:volume | agent
+# compound — two or three requests in one sentence, run step by step; a "Yakin?" step may only come last
+buka spotify terus putar lagu tulus => rule:music query=tulus
+buka youtube lalu matikan laptop => rule:sequence
+nyalakan timer 5 menit terus putar lagu => rule:sequence | rule:timer_set
+cek cuaca dan berita hari ini => rule:weather | rule:sequence | agent
+ingatkan aku jam 7 dan putar lagu santai => rule:sequence | rule:reminder_set
+buka chrome terus cari resep rendang => rule:sequence | agent
+catat beli susu dan ingatkan jam 5 => rule:sequence
+matikan suara terus kunci laptop => rule:sequence
 cari berita bola lalu bacakan => agent
 buka whatsapp dan kirim pesan ke ibu => rule:open_app | agent
+pasang timer 5 menit terus putar lagu santai => rule:sequence
+buka whatsapp terus kirim pesan ke ibu => rule:sequence
+putar lagu dia dan indahkus => rule:music query="dia dan indahkus"
+catat besok rapat terus makan siang sama klien => rule:note_add
+jangan buka youtube terus matikan laptop => not:power,sequence,open_website
+matikan laptop terus buka youtube => rule:power | agent
+kecilin volume terus lanjutin lagunya => rule:sequence
+buka discord terus buka spotify => rule:sequence
+ingetin aku minum obat jam 9 terus catat beli vitamin => rule:sequence
+buka youtube habis itu cek cuaca => rule:sequence
 
 # noisy — speech-to-text mistakes, typos, chat abbreviations, punctuation
 buka you tube => rule:open_website name=youtube

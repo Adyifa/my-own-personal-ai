@@ -71,7 +71,7 @@ Mika's answers below are illustrative; the actions are what the code does.
 | AI safety and prompt-injection defence | [tools.py](mika/brain/tools.py), [web_search.py](mika/skills/web_search.py) |
 | Hybrid routing: fast rules first, AI for the rest | [router.py](mika/brain/router.py) |
 | Testing AI features without a real model | [tests/](tests/) |
-| Evaluation-driven development: 599 real-world Indonesian utterances (slang, Sundanese, Javanese, speech-to-text errors, curhat, self-harm statements) with the expected behaviour; safety categories must pass 100% | [evals/routing_cases.txt](evals/routing_cases.txt), [test_routing_eval.py](tests/test_routing_eval.py) |
+| Evaluation-driven development: 609 real-world Indonesian utterances (slang, Sundanese, Javanese, speech-to-text errors, curhat, self-harm statements) with the expected behaviour; safety categories must pass 100% | [evals/routing_cases.txt](evals/routing_cases.txt), [test_routing_eval.py](tests/test_routing_eval.py) |
 | Refactoring legacy code without breaking it | [assistant.py](assistant.py) (old entry point still works), [test_router.py](tests/test_router.py) |
 
 ### Architecture
@@ -112,6 +112,7 @@ flowchart LR
 9. **Barge-in without special hardware.** On laptop speakers the microphone hears Mika herself, and real echo cancellation needs special audio drivers. Instead, speech heard while Mika talks is transcribed and compared with what she just said: if it matches, it is her own echo and is ignored. Only a stop word ("stop", "cukup") or the wake phrase ("halo mika, ...") interrupts her, and the LLM stream is closed so the model stops generating. With headphones, a "voice" mode lets any speech interrupt.
 10. **Memory that cannot be poisoned.** Facts the user asks Mika to remember live in a local file, are injected into the AI's context only when relevant, and can be listed and deleted by voice; wiping everything needs a spoken "iya". Passwords, PINs, card and ID numbers are refused. Each turn tracks whether the AI has read outside text (a web page, the screen, the clipboard); after that, the memory tool is refused, so a web page cannot plant a false "memory".
 11. **Private by default, small context.** Screenshots stay in memory and go to the local vision model; sending them to a cloud model is an explicit opt-in. Rarely used tools (screen, clipboard, memory, shutdown) are offered to the model only when the user's sentence mentions their topic, which keeps the tool list small for a 4k-token context.
+12. **One persona everywhere.** How Mika talks (your name, aku-kamu / gue-lo / saya-Anda, advice style, humor) is set once, in the Settings tab "Kepribadian". The AI gets it as instructions, and every fixed reply (confirmations, errors, curhat, the crisis reply) passes through one converter, so the offline templates and the model sound like the same Mika. The instructions also carry the rule for advice: listen first, offer options with their trade-offs, and leave the decision to the user.
 
 Problems found while testing on the real laptop, and fixed:
 
@@ -153,7 +154,8 @@ Every class and function in the AI code has a one-line comment explaining what i
 | 2 | Alexa-style skills: timers, reminders, alarms, weather, date and time, media and volume, battery, notes | Done |
 | 3 | Offline speech recognition (Whisper + VAD), interrupting Mika while she speaks, per-turn latency log | Done |
 | 4 | "Look at my screen" (vision), clipboard, morning briefing, news headlines, long-term memory | Done |
-| 5 | Evaluation set (599 utterances, done), latency benchmark, demo video | In progress |
+| 5 | Evaluation set (609 utterances, done), latency benchmark, demo video | In progress |
+| 6 | Companion: A (one persona for the whole system, offline curhat, two commands in one sentence) done; B (curhat mode), C (memory of past conversations), D (learning), E (conversation tests) planned | In progress |
 
 Measured so far on the target laptop (i7-11800H, RTX 3050 4 GB):
 
@@ -183,7 +185,7 @@ python assistant.py --text --mute   # type instead of talk, no sound
 python mic_test.py                  # check the microphone and speech recognition
 python tray_assistant.py            # full voice assistant in the system tray
 python -m pytest                    # run the tests
-python -m evals.routing             # routing accuracy on 599 utterances
+python -m evals.routing             # routing accuracy on 609 utterances
 ```
 
 API keys are optional and go in a `.env` file (see [.env.example](.env.example)); they are never committed. Full user guide (Indonesian): [docs/PANDUAN_PENGGUNA.md](docs/PANDUAN_PENGGUNA.md).
@@ -281,7 +283,7 @@ Jawaban Mika di bawah ini hanya ilustrasi; aksinya sesuai dengan yang dikerjakan
 | Keamanan AI dan pertahanan terhadap prompt injection | [tools.py](mika/brain/tools.py), [web_search.py](mika/skills/web_search.py) |
 | Routing hibrida: aturan cepat dulu, AI untuk sisanya | [router.py](mika/brain/router.py) |
 | Menguji fitur AI tanpa model sungguhan | [tests/](tests/) |
-| Pengembangan berbasis evaluasi: 599 kalimat bahasa Indonesia sehari-hari (slang, Sunda, Jawa, salah dengar speech-to-text, curhat, pernyataan menyakiti diri) dengan perilaku yang diharapkan; kategori keamanan wajib lulus 100% | [evals/routing_cases.txt](evals/routing_cases.txt), [test_routing_eval.py](tests/test_routing_eval.py) |
+| Pengembangan berbasis evaluasi: 609 kalimat bahasa Indonesia sehari-hari (slang, Sunda, Jawa, salah dengar speech-to-text, curhat, pernyataan menyakiti diri) dengan perilaku yang diharapkan; kategori keamanan wajib lulus 100% | [evals/routing_cases.txt](evals/routing_cases.txt), [test_routing_eval.py](tests/test_routing_eval.py) |
 | Refactor kode lama tanpa merusaknya | [assistant.py](assistant.py) (entry point lama tetap jalan), [test_router.py](tests/test_router.py) |
 
 ### Arsitektur
@@ -322,6 +324,7 @@ flowchart LR
 9. **Barge-in tanpa perangkat khusus.** Di speaker laptop, mikrofon ikut mendengar suara Mika sendiri, dan peredam gema sungguhan butuh driver audio khusus. Sebagai gantinya, ucapan yang terdengar saat Mika bicara ditranskrip lalu dibandingkan dengan kalimat yang baru saja ia ucapkan: kalau mirip, itu gema dan diabaikan. Hanya kata henti ("stop", "cukup") atau kata panggil ("halo mika, ...") yang memotongnya, dan aliran LLM ditutup supaya model berhenti menghasilkan teks. Dengan headset, mode "voice" membuat ucapan apa pun bisa memotong.
 10. **Memori yang tidak bisa diracuni.** Hal yang diminta pengguna untuk diingat disimpan di file lokal, dimasukkan ke konteks AI hanya saat relevan, dan bisa dilihat serta dihapus lewat suara; menghapus semuanya butuh jawaban "iya". Password, PIN, nomor kartu, dan nomor identitas ditolak. Setiap giliran mencatat apakah AI sudah membaca teks dari luar (halaman web, layar, clipboard); setelah itu tool memori ditolak, jadi halaman web tidak bisa menanam "ingatan palsu".
 11. **Privat secara default, konteks hemat.** Tangkapan layar hanya ada di memori dan dikirim ke model vision lokal; mengirimnya ke model cloud harus dinyalakan sendiri. Tool yang jarang dipakai (layar, clipboard, memori, shutdown) hanya ditawarkan ke model saat kalimat pengguna menyinggung topiknya, supaya daftar tool tetap muat di konteks 4k token.
+12. **Satu kepribadian di mana-mana.** Cara Mika bicara (namamu, aku-kamu / gue-lo / saya-Anda, gaya saran, humor) diatur sekali di tab Settings "Kepribadian". AI menerimanya sebagai instruksi, dan setiap balasan tetap (konfirmasi, pesan error, curhat, balasan krisis) melewati satu pengubah, jadi template offline dan model terdengar sebagai Mika yang sama. Instruksinya juga memuat aturan saran: dengarkan dulu, tawarkan pilihan beserta untung-ruginya, dan biarkan pengguna yang memutuskan.
 
 Masalah yang ditemukan saat diuji di laptop sungguhan, dan sudah diperbaiki:
 
@@ -363,7 +366,8 @@ Setiap class dan fungsi di kode AI punya komentar satu baris yang menjelaskan ap
 | 2 | Skill ala Alexa: timer, pengingat, alarm, cuaca, jam dan tanggal, media dan volume, baterai, catatan | Selesai |
 | 3 | Pengenalan suara offline (Whisper + VAD), memotong Mika saat sedang bicara, log latensi per giliran | Selesai |
 | 4 | "Lihat layarku" (vision), clipboard, briefing pagi, judul berita, memori jangka panjang | Selesai |
-| 5 | Dataset evaluasi (599 kalimat, selesai), benchmark latensi, video demo | Sedang dikerjakan |
+| 5 | Dataset evaluasi (609 kalimat, selesai), benchmark latensi, video demo | Sedang dikerjakan |
+| 6 | Teman ngobrol: A (satu kepribadian untuk seluruh sistem, curhat offline, dua perintah dalam satu kalimat) selesai; B (mode curhat), C (ingatan percakapan), D (belajar), E (uji percakapan) direncanakan | Sedang dikerjakan |
 
 Yang sudah diukur di laptop target (i7-11800H, RTX 3050 4 GB):
 
@@ -393,7 +397,7 @@ python assistant.py --text --mute   # mengetik, bukan bicara, tanpa suara
 python mic_test.py                  # mengecek mikrofon dan pengenalan suara
 python tray_assistant.py            # asisten suara lengkap di system tray
 python -m pytest                    # menjalankan test
-python -m evals.routing             # akurasi routing pada 599 kalimat
+python -m evals.routing             # akurasi routing pada 609 kalimat
 ```
 
 API key bersifat opsional dan disimpan di file `.env` (lihat [.env.example](.env.example)); file ini tidak pernah masuk Git. Panduan pemakaian lengkap: [docs/PANDUAN_PENGGUNA.md](docs/PANDUAN_PENGGUNA.md).

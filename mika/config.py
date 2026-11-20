@@ -145,7 +145,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "music": {
         "provider": "spotify",
-        "open_mode": "web",
+        "open_mode": "auto",  # "auto": the Spotify app when installed, else the web player; "app"; "web"
         "songs": {
             "malu malu": "Malu Malu Dia Indahkus",
         },
@@ -265,6 +265,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "https://www.republika.co.id/rss",
             "https://www.cnbcindonesia.com/news/rss",
         ],
+    },
+    "persona": {
+        "user_name": "",  # how Mika calls you; empty means "kamu"
+        "register": "santai",  # "santai" (aku-kamu), "gaul" (gue-lo), "sopan" (saya-Anda)
+        "advice": "tanya_dulu",  # "tanya_dulu" (ask before advising), "langsung", "dengar_saja" (just listen)
+        "humor": "sedikit",  # "tidak", "sedikit", "banyak"
     },
     "memory": {
         "enabled": True,  # facts in data/memory.json, injected into the AI's context

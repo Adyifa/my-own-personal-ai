@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -84,6 +86,30 @@ CONVERSATION_REPLIES: dict[str, dict[str, list[str]]] = {
             "Mika belum paham maksudnya. Coba bilang dengan pola seperti buka, cari, putar, atau cerita singkat.",
             "Aku nangkep kalimatnya, tapi belum tahu harus ngapain. Mau Mika cari di Google?",
             "Hmm, itu belum masuk command Mika. Kalau mau, bilang: cari itu di Google.",
+        ],
+        # Curhat without an AI model: listen, reflect, invite more. Never a joke, a search, or advice.
+        "curhat_work": [
+            "Capek ya kalau urusan kerjaan lagi begitu. Aku dengerin. Bagian mana yang paling bikin kamu kepikiran?",
+            "Kedengarannya berat di kerjaan. Ceritain aja dulu, nanti kalau kamu mau, kita pikirin pilihannya bareng.",
+        ],
+        "curhat_love": [
+            "Itu pasti bikin kepikiran. Aku di sini, cerita aja pelan-pelan.",
+            "Urusan hati memang nggak gampang. Kamu lagi ngerasa gimana sekarang?",
+        ],
+        "curhat_family": [
+            "Urusan keluarga sering paling berat, justru karena kita peduli. Mau cerita lebih lanjut?",
+            "Aku dengerin. Apa yang terjadi?",
+        ],
+        "curhat_friend": [
+            "Sakit juga ya kalau itu datang dari teman. Ceritain aja, aku dengerin.",
+            "Aku dengerin. Kamu lagi ngerasa gimana soal itu?",
+        ],
+        "curhat_feeling": [
+            "Makasih udah cerita. Perasaan kayak gitu wajar, dan kamu nggak sendirian. Mau cerita lebih banyak?",
+            "Aku dengerin. Pelan-pelan aja, nggak usah buru-buru.",
+        ],
+        "curhat_advice": [
+            "Aku bisa bantu mikir bareng. Ceritain dulu situasinya, nanti kita lihat pilihannya, keputusannya tetap di kamu.",
         ],
     },
     "soft": {
@@ -341,3 +367,137 @@ LLM_STYLES: dict[str, str] = {
     ),
 }
 LLM_STYLES["custom"] = LLM_STYLES["cute"]
+
+
+# One persona for the whole system ---------------------------------------------------------------
+# Set once in commands.json ("persona") or the Settings tab "Kepribadian"; the LLM gets it as instructions, and every
+# template reply passes through Persona.speak, so confirmations, errors, curhat, and the AI all sound like one Mika.
+
+REGISTERS = ("santai", "gaul", "sopan")  # aku-kamu, gue-lo, saya-Anda
+ADVICE_STYLES = ("tanya_dulu", "langsung", "dengar_saja")
+HUMOR_LEVELS = ("tidak", "sedikit", "banyak")
+
+# Words that end in "mu" but are not "your X" ("Mika belum nemu", "ketemu").
+_MU_EXCEPTIONS = {"kamu", "nemu", "ketemu", "temu", "bertemu", "ilmu", "jamu", "tamu", "jemu", "semu", "ramu", "menemu"}
+_SOPAN_WORDS = {
+    "aku": "saya", "kamu": "Anda", "nggak": "tidak", "gak": "tidak", "ga": "tidak", "enggak": "tidak", "ngga": "tidak",
+    "udah": "sudah", "aja": "saja", "bukain": "bukakan", "cariin": "carikan", "puterin": "putarkan", "kayak": "seperti",
+    "gimana": "bagaimana", "banget": "sekali", "seneng": "senang", "bener": "benar", "nemu": "menemukan",
+    "ketemu": "menemukan", "nyari": "mencari", "dengerin": "mendengarkan", "denger": "dengar", "bikin": "membuat",
+    "pengen": "ingin", "kalo": "kalau", "makasih": "terima kasih", "ngobrol": "berbincang", "nemenin": "menemani",
+    "ceritain": "ceritakan", "ngerasa": "merasa", "ngerti": "mengerti", "ngomong": "bicara", "nanya": "bertanya",
+    # "lagi" stays: it means both "currently" and "again" ("Mika bantu lagi").
+}
+_GREETING_START = re.compile(
+    r"^(Halo halo|Hai hai|Halo|Hai|Pagi|Selamat pagi|Malam|Selamat malam|Sama-sama|Siap|Oke|Boleh|Baik)([,.!]?)(?=\s|$)"
+)
+
+
+def _swap_words(text: str, mapping: dict[str, str]) -> str:
+    """Whole-word replacement that keeps a leading capital ("Aku" → "Gue")."""
+    def replace(match: re.Match[str]) -> str:
+        word, new = match.group(0), mapping[match.group(0).lower()]
+        return new[:1].upper() + new[1:] if word[:1].isupper() and new else new
+
+    return re.sub(r"\b(" + "|".join(map(re.escape, mapping)) + r")\b", replace, text, flags=re.IGNORECASE)
+
+
+def _possessive(text: str, owner: str) -> str:
+    """"catatanmu" → "catatan lo" / "catatan Anda"."""
+    return re.sub(
+        r"\b([A-Za-z]{2,})mu\b",
+        lambda match: match.group(0) if match.group(0).lower() in _MU_EXCEPTIONS else f"{match.group(1)} {owner}",
+        text,
+    )
+
+
+@dataclass(frozen=True)
+class Persona:
+    """How Mika talks to this user: name, register, advice style, humor."""
+
+    user_name: str = ""
+    register: str = "santai"
+    advice: str = "tanya_dulu"
+    humor: str = "sedikit"
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "Persona":
+        settings = config.get("persona", {}) or {}
+
+        def pick(key: str, allowed: tuple[str, ...], default: str) -> str:
+            value = str(settings.get(key, default) or default).strip().lower()
+            return value if value in allowed else default
+
+        return cls(
+            user_name=str(settings.get("user_name", "") or "").strip(),
+            register=pick("register", REGISTERS, "santai"),
+            advice=pick("advice", ADVICE_STYLES, "tanya_dulu"),
+            humor=pick("humor", HUMOR_LEVELS, "sedikit"),
+        )
+
+    def speak(self, text: str) -> str:
+        """A template reply in the chosen register. Templates are written in aku-kamu, so "santai" changes nothing."""
+        if self.register == "gaul":
+            return _swap_words(_possessive(text, "lo"), {"aku": "gue", "kamu": "lo"})
+        if self.register == "sopan":
+            text = _swap_words(_possessive(text, "Anda"), _SOPAN_WORDS)
+            text = re.sub(r"^(?:Hehe|Hihi|Wah),?\s*", "", text)
+            text = text[:1].upper() + text[1:]
+            text = re.sub(r"\s+(?:ya|dong|deh|sih|nih|lho|kok)(?=[.!?,]|$)", "", text)
+            text = re.sub(r"\b(?:Oke|Siap)\b", "Baik", text)
+            return re.sub(r"\s{2,}", " ", text).strip()
+        return text
+
+    def greet(self, text: str) -> str:
+        """Put the user's name into a greeting or thanks: "Halo, Mika di sini." → "Halo Yasa, Mika di sini."."""
+        match = _GREETING_START.match(text)
+        if not self.user_name or not match:
+            return text
+        word, punctuation = match.group(1), match.group(2)
+        rest = text[match.end():].strip()
+        if punctuation == ",":
+            return f"{word} {self.user_name}, {rest}".strip()
+        return f"{word}, {self.user_name}{punctuation or '.'} {rest}".strip()
+
+    def prompt_lines(self) -> str:
+        """The same persona as instructions for the LLM, including who makes decisions: the user."""
+        register = {
+            "santai": "Pakai 'aku' untuk dirimu dan 'kamu' untuk pengguna.",
+            "gaul": "Pakai gaya Jakarta 'gue' dan 'lo', tetap sopan dan hangat.",
+            "sopan": "Pakai 'saya' dan 'Anda' dengan bahasa baku yang ramah.",
+        }[self.register]
+        name = f" Panggil pengguna '{self.user_name}' sesekali, tidak di setiap kalimat." if self.user_name else ""
+        humor = {
+            "tidak": "Jangan bercanda.",
+            "sedikit": "Boleh sedikit bercanda kalau suasananya pas, tapi tidak saat pengguna sedih.",
+            "banyak": "Kamu suka bercanda dan ceria, tapi berhenti bercanda saat pengguna sedih atau serius.",
+        }[self.humor]
+        advice = {
+            "tanya_dulu": "tanya dulu apakah dia mau saran atau cuma ingin didengar",
+            "langsung": "boleh langsung memberi saran yang hati-hati",
+            "dengar_saja": "jangan memberi saran kecuali diminta; fokus mendengarkan dan memahami",
+        }[self.advice]
+        return (
+            f"Cara bicara: {register}{name} {humor}\n"
+            "Kamu teman ngobrol dan asisten, bukan pengambil keputusan. Saat pengguna curhat atau minta pendapat: "
+            f"dengarkan dulu, tunjukkan kamu paham perasaannya, {advice}. Kalau memberi saran, tawarkan beberapa pilihan "
+            "beserta untung-ruginya, lalu biarkan pengguna yang memutuskan."
+        )
+
+
+class PersonaSpeaker:
+    """Wraps the speaker for rule-path replies. The AI's own words go to the raw speaker: the model was already told
+    how to talk, and rewriting generated text could break it."""
+
+    def __init__(self, speaker: Any, persona: Persona):
+        self._speaker = speaker
+        self.persona = persona
+
+    def say(self, message: str) -> None:
+        self._speaker.say(self.persona.speak(message))
+
+    def say_async(self, message: str) -> None:
+        getattr(self._speaker, "say_async", self._speaker.say)(self.persona.speak(message))
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._speaker, name)

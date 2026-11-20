@@ -14,9 +14,9 @@ from .brain.router import Route, Router, is_crisis
 from .config import DATA_DIR
 from .memory import MemoryStore, as_spoken, sensitive_reason
 from .metrics import LatencyLog
-from .persona import CONVERSATION_REPLIES, VOICE_PERSONALITY_PRESETS
+from .persona import CONVERSATION_REPLIES, VOICE_PERSONALITY_PRESETS, Persona, PersonaSpeaker
 from .skills.briefing import Briefing
-from .skills.browser import search_url, spotify_url
+from .skills.browser import has_spotify_app, search_url, spotify_url
 from .skills.clipboard import Clipboard, task_instruction
 from .skills.disk import DiskCare, cleanup_detail, cleanup_question, cleanup_summary, report_text
 from .skills.hub import SkillHub, SkillReply, build_skill_hub, join_words
@@ -25,6 +25,9 @@ from .skills.news import NewsFeed, short_title
 from .skills.power import execute_power_action
 from .skills.vision import VISION_SYSTEM_PROMPT, ScreenCapture
 from .text import clean_conversational_command, contains_phrase, normalize, safe_print
+
+# Small-talk replies that may carry the user's name ("Halo Yasa, ...").
+_GREETED_CATEGORIES = {"greeting", "morning", "night", "thanks", "praise", "how_are_you", "chat_invite"}
 
 # "matikan laptop 30 menit lagi": what Mika cannot schedule yet, and the phrase to say when it is time.
 POWER_LATER_WORDS = {
@@ -125,7 +128,9 @@ class Assistant:
         disk: DiskCare | None = None,
     ):
         self.config = config
-        self.speaker = speaker
+        self.persona = Persona.from_config(config)
+        # Template replies speak in the chosen register; aku-kamu needs no wrapper (templates are written that way).
+        self.speaker = PersonaSpeaker(speaker, self.persona) if self.persona.register != "santai" else speaker
         self.name = config.get("assistant_name", "Assistant")
         self.launcher = launcher or Launcher(config)
         self.router = Router(config, self.launcher)
@@ -289,6 +294,20 @@ class Assistant:
             self.speaker.say(f"Oke, Mika lupakan: {as_spoken(removed[0].text)}.")
         else:
             self.speaker.say("Mika nggak nemu memori yang cocok.")
+
+    def run_sequence(self, steps: list[dict[str, Any]]) -> bool:
+        """"X terus Y": run the steps in order. A "Yakin?" or a follow-up question ends the sequence there, because
+        the user's next words answer that question."""
+        for step in steps:
+            if self._turn_cancel.is_set():
+                break
+            route, text = step["route"], step["text"]
+            keep_running = self.run_rule(route, text) if route.path == "rule" else self.run_agent(route, text, text)
+            if not keep_running:
+                return False
+            if self.pending_action is not None or self.follow_up is not None:
+                break
+        return True
 
     def respond_to_crisis(self, command: str) -> None:
         """A fixed, careful reply to self-harm statements, written by people rather than generated, and spoken even
@@ -479,6 +498,8 @@ class Assistant:
         if intent == "stop":
             self.speaker.say(self.message("stop_reply", "Baik, aku berhenti dulu."))
             return False
+        if intent == "sequence":
+            return self.run_sequence(args["steps"])
         if intent in SKILL_INTENTS:
             self.deliver(SKILL_INTENTS[intent](self.hub, args))
         elif intent in BEYOND_INTENTS:
@@ -510,7 +531,7 @@ class Assistant:
             )
             self.speaker.say(question)
         elif intent == "music":
-            self.launcher.open_url(spotify_url(self.config, args["query"]))
+            self.launcher.open_url(spotify_url(self.config, args["query"], app_installed=has_spotify_app(self.launcher)))
             self.speaker.say(self.message("music_reply", "Mencari {query} di Spotify.", query=args["query"]))
         elif intent == "browser_search":
             self.open_browser_search(args["provider"], args["query"])
@@ -695,9 +716,10 @@ class Assistant:
         choices = preset_bank.get(category) or default_bank.get(category) or [fallback]
         template = random.choice(choices)
         try:
-            return template.format(name=self.name, **values)
+            reply = template.format(name=self.name, **values)
         except (KeyError, ValueError, IndexError):
-            return fallback.format(name=self.name, **values)
+            reply = fallback.format(name=self.name, **values)
+        return self.persona.greet(reply) if category in _GREETED_CATEGORIES else reply
 
     def say_help(self) -> None:
         websites = ", ".join(sorted(self.config.get("websites", {}).keys()))

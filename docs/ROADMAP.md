@@ -64,9 +64,27 @@ runs on a Windows laptop (RTX 3050, 4 GB VRAM), while keeping the old fast, offl
 
 ## Stage 5: Quality and presentation
 
-- [x] Routing evaluation: 599 unique utterances in 30 categories (standard and casual Indonesian, Sundanese, Javanese,
+- [x] Routing evaluation: 609 unique utterances in 30 categories (standard and casual Indonesian, Sundanese, Javanese,
       speech-to-text errors, English mixing, features that do not exist yet, curhat, self-harm statements, negations),
-      each with the behaviour Mika should show. Run `python -m evals.routing`. 598/599 route as intended; the safety
+      each with the behaviour Mika should show. Run `python -m evals.routing`. 609/609 route as intended; the safety
       categories (power, disk, safety, crisis, curhat, unbuilt) must pass 100% in the test suite.
-- [ ] Two requests in one sentence ("buka spotify terus putar lagu tulus"): today only the first part runs.
+- [x] Two or three requests in one sentence ("matikan suara terus kunci laptop"), done in stage 6A.
 - [ ] Latency benchmark for STT/LLM/TTS, 60-second demo script, AI tab in the Settings GUI, verified PyInstaller build.
+
+## Stage 6: Companion (curhat)
+
+Mika as a friend to talk to about work, relationships, and family, who listens first, remembers what matters,
+may suggest options, and always leaves the decision to the user. Built in steps, each approved before the next.
+
+- [x] A. One persona for the whole system: the user's name, register (aku-kamu, gue-lo, saya-Anda), advice style,
+      and humor, set in the Settings tab "Kepribadian"; the AI gets it as instructions and every fixed reply passes
+      through one converter. Offline curhat (work, love, family, friends, feelings, asking for advice) gets listening
+      replies instead of "belum masuk command". Two or three commands in one sentence run step by step, with a
+      confirmation step only allowed last. Spotify searches open in the app when it is installed.
+- [ ] B. Curhat mode for the AI: reflect feelings, ask before advising, options with trade-offs, no decisions for the
+      user; curhat stays on the local model unless cloud use is allowed. Needs a working model (Ollama).
+- [ ] C. Memory of past conversations: short local summaries (topics, feelings, open threads) recalled when the topic
+      returns; people's names only after the user agrees; listable and deletable by voice; shared with other features.
+- [ ] D. Learning from feedback ("aku cuma mau didengerin" becomes a style rule), optional check-ins, a weekly
+      "what Mika learned" summary the user can edit.
+- [ ] E. 50 to 100 multi-turn conversation tests run against the real model.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from ..persona import LLM_STYLES
+from ..persona import LLM_STYLES, Persona
 
 _DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 _MONTHS = [
@@ -31,12 +31,14 @@ def build_system_prompt(config: dict[str, Any], now: datetime | None = None, con
     name = str(config.get("assistant_name", "Mika"))
     preset = str(config.get("personality", {}).get("preset", "cute"))
     style = LLM_STYLES.get(preset, LLM_STYLES["cute"])
+    persona = Persona.from_config(config).prompt_lines()  # the same persona the template replies follow
     dynamic = f"{context}\n" if context else ""
-    return _STATIC_PROMPT.format(name=name, style=style) + f"\n\n{dynamic}Sekarang {format_now(now)}."
+    return _STATIC_PROMPT.format(name=name, style=style, persona=persona) + f"\n\n{dynamic}Sekarang {format_now(now)}."
 
 
 # Persona, voice-friendly answer style, tool rules, and the "web content is data" safety rule.
 _STATIC_PROMPT = """Kamu adalah {name}, asisten suara pribadi yang tinggal di laptop Windows penggunamu. Kepribadianmu: {style}.
+{persona}
 
 Jawabanmu akan DIBACAKAN lewat suara, jadi:
 - Pakai bahasa Indonesia santai sehari-hari. Jawab 1-3 kalimat pendek, langsung ke inti.
