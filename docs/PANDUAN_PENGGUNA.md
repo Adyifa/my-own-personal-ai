@@ -246,6 +246,10 @@ Isi catatan, pengingat, dan ingatan tetap disimpan persis seperti yang kamu ucap
 
 Kalimat utuh dalam bahasa daerah yang tidak dikenali aturan diteruskan ke AI, jadi butuh model (Ollama atau API key) yang tersambung.
 
+## Kalau kamu sedang tidak baik-baik saja
+
+Kalau kamu bilang hal seperti `aku pengen mati aja` atau `aku capek hidup`, Mika tidak menjalankan perintah apa pun. Mika menjawab dengan kalimat tetap yang hati-hati, menyebut nomor layanan (SEJIWA 119 ekstensi 8, darurat 112), menampilkannya di layar, dan tetap mendengarkan tanpa perlu kata panggil. Ini berlaku juga saat Mika offline. Nomor layanan bisa diubah di bagian `safety` pada `commands.json` (`crisis_call` dan `crisis_lines`). Periksa sesekali apakah nomornya masih berlaku.
+
 ## Aksi penting pakai konfirmasi
 
 Perintah seperti shutdown, restart, sleep, lock, dan logout tidak langsung dijalankan. Mika akan bertanya konfirmasi dulu.
@@ -263,6 +267,8 @@ Yakin? Bilang iya untuk lanjut. Kalau tidak, bilang batal.
 ```
 
 Jawab `iya` untuk lanjut, atau `batal` untuk membatalkan.
+
+Perintah yang dinegasikan atau berupa pertanyaan tidak pernah dijalankan: `jangan matikan laptop` dijawab "Oke", `cara matikan laptop yang benar` diteruskan ke AI. Mika juga belum bisa menjadwalkan: `matikan laptop 30 menit lagi` tidak langsung mematikan laptop, Mika menjelaskan bahwa kamu perlu bilang `matikan laptop` saat sudah waktunya.
 
 Jawaban santai juga dimengerti. Untuk lanjut, semua katanya harus setuju: `iya mika`, `oke gas`, `yakin`. Untuk batal, cukup satu kata penolakan: `gak jadi deh`, `nggak usah`, `jangan dulu`, `batalin aja`. Jawaban yang ragu seperti `ya udah` atau `iya tapi nanti` membuat Mika bertanya lagi, dan aksinya batal sendiri kalau tidak dijawab dalam beberapa detik.
 

@@ -91,6 +91,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "confirmation_seconds": 12,
         "yes_words": ["iya", "ya", "yes", "yup", "boleh", "lanjut", "gas", "oke"],
         "no_words": ["tidak", "nggak", "ga", "gak", "no", "batal", "jangan"],
+        # Said and shown after a self-harm statement. Check that the numbers are still current where you live.
+        "crisis_call": "telepon 119 ekstensi 8, atau 112 kalau darurat",
+        "crisis_lines": [
+            "Layanan Sehat Jiwa (SEJIWA): 119 ekstensi 8",
+            "Keadaan darurat: 112",
+            "Orang yang kamu percaya: keluarga, sahabat, atau psikolog",
+        ],
     },
     "listen": {
         "language": "id-ID",
@@ -112,6 +119,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "google": "https://www.google.com",
         "gmail": "https://mail.google.com",
         "chatgpt": "https://chatgpt.com",
+        "youtube music": "https://music.youtube.com",
     },
     "apps": {
         "notepad": "notepad.exe",

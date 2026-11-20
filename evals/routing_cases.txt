@@ -1,0 +1,658 @@
+# apps — opening installed apps (desktop shortcuts and Microsoft Store apps)
+buka whatsapp => rule:open_app name=whatsapp
+bukain wa dong => rule:open_app name=wa
+tolong buka spotify => rule:open_app name=spotify
+buka aplikasi kamera => rule:open_app name=kamera
+buka pengaturan => rule:open_app name=pengaturan
+buka setting => rule:open_app name=setting
+buka kalkulator => rule:open_app name=kalkulator
+buka calculator => rule:open_app name=calculator
+jalankan chrome => rule:open_app name="google chrome"
+buka google chrome => rule:open_app name="google chrome"
+buka vs code => rule:open_app name="vs code"
+buka visual studio code => rule:open_app name="visual studio code"
+bukain discord => rule:open_app name=discord
+buka steam => rule:open_app name=steam
+buka obs => rule:open_app name="obs studio"
+open notepad => rule:open_app name=notepad
+buka notepad ya mika => rule:open_app name=notepad
+buka paint => rule:open_app name=paint
+buka file explorer => rule:open_app
+buka explorer => rule:open_app name=explorer
+buka task manager => rule:open_app name="task manager"
+buka cmd => rule:open_app name=cmd
+buka terminal => rule:open_app name=terminal
+buka microsoft store => rule:open_app name="microsoft store"
+buka netflix => rule:open_app name=netflix
+buka snipping tool => rule:open_app name="snipping tool"
+buka vlc => rule:open_app name="vlc media player"
+buka laragon => rule:open_app name=laragon
+gue mau buka discord => rule:open_app name=discord
+kak bukain kamera dong => rule:open_app name=kamera
+nyalain spotify => rule:open_app name=spotify
+buka aplikasi telegram => agent:open_unknown
+buka zoom => agent:open_unknown
+bukak wa => rule:open_app name=wa
+tulung bukakno whatsapp => rule:open_app name=whatsapp
+buka capcut => rule:open_app name=capcut
+buka microsoft word => rule:open_app name="microsoft word"
+buka sticky notes => rule:open_app name="sticky notes"
+buka jam => rule:open_app | agent
+buka perekam suara => rule:open_app name="perekam suara"
+
+# games — Steam and other installed games
+main cs2 => rule:open_game name=cs2
+ayo main cs2 => rule:open_game name=cs2
+mainkan counter strike => rule:open_game name="counter strike"
+gue mau main dota => rule:open_game name="dota 2"
+main dota 2 => rule:open_game name="dota 2"
+buka pubg => rule:open_game name="pubg battlegrounds"
+main apex => rule:open_game name="apex legends"
+jalankan apex legends => rule:open_game name="apex legends"
+aku pengen main counter strike 2 => rule:open_game
+main game dong => agent
+mainkan valorant => not:music
+main game cs => rule:open_game
+play cs2 => rule:open_game name=cs2
+main si es tu => rule:open_game
+main valo => not:music
+
+# websites — named sites, domains, and site aliases
+buka youtube => rule:open_website name=youtube
+youtube => rule:open_website name=youtube
+buka gmail => rule:open_website name=gmail
+buka email ku => agent | rule:open_website name=gmail
+buka chatgpt => rule:open_website name=chatgpt
+buka google => rule:open_website name=google
+buka instagram => rule:open_website name=instagram
+bukain ig dong => rule:open_website name=instagram | agent
+buka tiktok => rule:open_website name=tiktok
+buka shopee => rule:open_website name=shopee
+buka tokopedia => rule:open_website name=tokopedia
+buka twitter => rule:open_website name=twitter
+buka kompas.com => rule:open_website name=kompas.com
+kompas.com => rule:open_website name=kompas.com
+buka detik.com dong => rule:open_website name=detik.com
+buka website detik.com => rule:open_website name=detik.com
+buka situs bmkg.go.id => rule:open_website name=bmkg.go.id
+buka https://github.com => rule:open_website
+buka github => rule:open_website name=github
+buka linkedin => rule:open_website name=linkedin
+buka youtube aja => rule:open_website name=youtube
+buka youtube di chrome => rule:open_website name=youtube
+buka youtube music => rule:open_website name="youtube music"
+
+# youtube — searching and playing videos, in casual and regional speech
+cari video windah basudara di youtube => rule:browser_search provider=youtube query="windah basudara"
+nonton jess no limit => rule:browser_search provider=youtube_first query="jess no limit"
+gue mau nonton podcast deddy corbuzier => rule:browser_search provider=youtube_first query="podcast deddy corbuzier"
+puterin video kucing lucu dong => rule:browser_search provider=youtube_first query="kucing lucu"
+cariin tutorial excel di yutub => rule:browser_search provider=youtube query="tutorial excel"
+liatin highlight bola semalam di youtube => rule:browser_search provider=youtube query="highlight bola semalam"
+setelin lagu tulus di youtube => rule:browser_search provider=youtube_first query="lagu tulus"
+youtube resep nasi goreng => rule:browser_search provider=youtube query="resep nasi goreng"
+buka youtube review hp terbaru => rule:browser_search provider=youtube_first query="review hp terbaru"
+tonton trailer film horor terbaru => rule:browser_search provider=youtube_first query="trailer film horor terbaru"
+nonton mobile legends => rule:browser_search provider=youtube_first query="mobile legends"
+golekno video masak rendang nang youtube => rule:browser_search provider=youtube query="masak rendang"
+carikeun video sunda lucu di youtube => rule:browser_search provider=youtube query="sunda lucu"
+lalajo video persib => rule:browser_search provider=youtube_first query=persib
+ane mau nonton review laptop gan => rule:browser_search provider=youtube_first query="review laptop"
+cari smitty di you tube => rule:browser_search provider=youtube query=smitty
+nonton youtube => rule:open_website name=youtube
+nonton youtube aja => rule:open_website name=youtube
+cari di youtube => rule:ask_search_query
+putar video => rule:ask_search_query | agent
+cari video klip noah di youtube => rule:browser_search provider=youtube query="video klip noah"
+buka youtube terus cari tutorial python => rule:browser_search provider=youtube query="tutorial python"
+mainkan lagu sheila on 7 di youtube => rule:browser_search provider=youtube_first query="lagu sheila on 7"
+nonton berita hari ini => rule:browser_search provider=youtube_first | agent
+cari cara pasang wallpaper di youtube => rule:browser_search provider=youtube query="cara pasang wallpaper"
+liat video kucing di yt => rule:browser_search provider=youtube query=kucing
+yutub => rule:open_website name=youtube
+buka yt => rule:open_website name=youtube
+nonton smitty di yutub dong => rule:browser_search provider=youtube_first query=smitty
+pengen nonton vlog jalan jalan ke jepang => rule:browser_search provider=youtube_first query="vlog jalan jalan ke jepang"
+ndelok video lucu nang youtube => rule:browser_search provider=youtube query=lucu
+tolong puterin video senam pagi => rule:browser_search provider=youtube_first query="senam pagi"
+
+# web — Google in the browser, or answered by voice
+cari resep rendang di google => rule:browser_search provider=google query="resep rendang"
+googling harga emas hari ini => rule:browser_search provider=google query="harga emas hari ini"
+gugel cara bikin cv => rule:browser_search provider=google query="cara bikin cv"
+cari tahu tentang gempa hari ini => agent:web_answer query="gempa hari ini"
+cariin info konser coldplay jakarta => agent:web_answer
+cari harga iphone 16 => agent:web_answer query="harga iphone 16"
+nyari lowongan kerja di bandung dong => agent:web_answer
+siapa pemenang piala dunia 2022 => agent
+berapa kurs dollar hari ini => agent
+cari berita terbaru soal ikn => agent
+cari di google => rule:ask_search_query
+cari => rule:ask_search_query | agent
+search resep kue di google => rule:browser_search provider=google query="resep kue"
+cari jadwal kereta jakarta bandung => agent:web_answer
+tolong googlingin cara ganti oli => rule:browser_search provider=google query="cara ganti oli"
+cek harga tiket pesawat ke bali => agent
+cari restoran enak dekat sini => agent
+cari tahu siapa itu nadiem makarim => agent:web_answer
+kasih tau berita bola terbaru => agent
+cari di google cara install python => rule:browser_search provider=google query="cara install python"
+cari kucing lucu di google => rule:browser_search provider=google query="kucing lucu"
+googling dong resep seblak => rule:browser_search provider=google query="resep seblak"
+cari lirik lagu hati hati di jalan => agent:web_answer
+cariin promo hari ini di shopee => agent
+cari cara bikin website => agent:web_answer
+
+# music — Spotify search, and opening Spotify itself
+putar lagu tulus => rule:music query=tulus
+puterin lagu hindia dong => rule:music query=hindia
+setel lagu dewa 19 => rule:music query="dewa 19"
+muterin lagu noah => rule:music query=noah
+dengerin lagu sheila on 7 => rule:music query="sheila on 7"
+gue mau dengerin lagu nadin amizah => rule:music query="nadin amizah"
+putar lagu ya sudahlah => rule:music query="ya sudahlah"
+play lagu hati-hati di jalan di spotify => rule:music query="hati-hati di jalan"
+putar playlist santai di spotify => rule:music
+putar lagu galau => rule:music query=galau
+lagu jazz buat kerja => rule:music query="jazz buat kerja"
+putar musik lofi => rule:music
+putar lagu => rule:ask_music
+putar musik => rule:ask_music
+putar spotify => rule:open_app name=spotify
+buka spotify => rule:open_app name=spotify
+spotify => rule:open_app name=spotify
+putar lagu yang lagi viral => rule:music
+mainkan lagu peterpan => rule:music query=peterpan
+nyetel lagu bernadya => rule:music query=bernadya
+putar lagu kesukaanku => rule:music | agent
+dengerin podcast di spotify => rule:music
+putar lagu malu malu => rule:music query="malu malu dia indahkus"
+putar lagu dari raisa => rule:music query=raisa
+puterin lagu sedih dong mika => rule:music query=sedih
+
+# media — playback keys
+pause => rule:media action=pause
+jeda dulu => rule:media action=pause
+stop musiknya => rule:media action=pause
+berhentiin lagunya => rule:media action=pause
+lanjutin lagunya => rule:media action=play
+putar lagi => rule:media action=play
+next => rule:media action=next
+lagu berikutnya => rule:media action=next
+skip dong => rule:media action=next
+ganti lagu => rule:media action=next
+lagu sebelumnya => rule:media action=previous
+balik ke lagu tadi => rule:media action=previous
+matikan lagunya => rule:media action=pause
+lanjutkan musik => rule:media action=play
+resume => rule:media action=play
+skip lagu ini dong => rule:media action=next
+
+# volume — exact levels, steps, mute
+kecilin volume => rule:volume
+gedein suara dong => rule:volume
+volume 50 => rule:volume
+volume 30 persen => rule:volume
+mute => rule:volume
+matiin suara => rule:volume
+pelanin suaranya ya => rule:volume
+kerasin dikit dong => rule:volume
+naikin volume => rule:volume
+turunin volume dikit => rule:volume
+suaranya kekecilan => rule:volume
+suaranya kegedean => rule:volume
+volume berapa sekarang => rule:volume
+nyalakan suara lagi => rule:volume
+bisukan => rule:volume
+volume maksimal => rule:volume
+set volume ke 20 => rule:volume
+naikkan volume ke 80 persen => rule:volume
+kecilkan suara laptop => rule:volume
+unmute => rule:volume
+
+# timers
+pasang timer 5 menit => rule:timer_set
+timer 10 menit dong => rule:timer_set
+set timer lima belas menit => rule:timer_set
+hitung mundur 3 menit => rule:timer_set
+timer setengah jam buat masak mie => rule:timer_set
+timer berapa lagi => rule:timer_status
+sisa waktu timer => rule:timer_status
+batalkan timer => rule:timer_cancel
+hapus timer masak => rule:timer_cancel
+stop timernya => rule:timer_cancel
+pasang timer 1 jam 30 menit => rule:timer_set
+timer 90 detik => rule:timer_set
+kasih timer 25 menit buat belajar => rule:timer_set
+timer => rule:timer_set | agent
+
+# reminders — reminders and alarms with Indonesian time phrases
+ingatkan aku minum obat jam 7 malam => rule:reminder_set
+ingetin gue meeting jam 3 sore => rule:reminder_set
+ingetin aku telepon ibu besok jam 9 pagi => rule:reminder_set
+tolong ingatkan aku bayar listrik tanggal 20 => rule:reminder_set
+bangunin aku jam 5 pagi => rule:reminder_set
+setel alarm jam 6 => rule:reminder_set
+pasang alarm jam setengah 7 pagi dong => rule:reminder_set
+alarm besok jam 4 subuh => rule:reminder_set
+ingatkan aku sholat ashar jam 3 => rule:reminder_set
+ingatkan aku 2 jam lagi istirahat => rule:reminder_set
+ingatkan aku 20 menit lagi angkat jemuran => rule:reminder_set
+ingatkan aku minum obat => rule:reminder_set
+pengingat apa aja => rule:reminder_list
+ada pengingat apa hari ini => rule:reminder_list
+alarm aku jam berapa aja => rule:reminder_list
+batalkan pengingat minum obat => rule:reminder_cancel
+hapus alarm jam 6 => rule:reminder_cancel
+hapus semua pengingat => rule:reminder_cancel
+tunda 10 menit => rule:snooze
+snooze => rule:snooze
+ingatkan aku tiap hari jam 8 minum vitamin => rule:reminder_set | agent
+ingetin aku lusa jam 10 ke dokter gigi => rule:reminder_set
+ingatkan aku hari senin jam 9 rapat => rule:reminder_set
+jangan lupa ingetin aku beli gas => rule:reminder_set
+bangunkan aku besok pagi => rule:reminder_set
+
+# weather
+cuaca hari ini => rule:weather
+gimana cuaca di bandung => rule:weather
+besok hujan nggak => rule:weather
+cuaca jakarta dong => rule:weather
+cek cuaca => rule:weather
+perlu bawa payung nggak => rule:weather
+panas nggak di luar => rule:weather
+suhu di surabaya berapa => rule:weather
+cuaca besok di yogyakarta => rule:weather
+lusa cerah nggak => rule:weather
+prakiraan cuaca minggu ini => rule:weather
+mau hujan ya => rule:weather
+cuaca di tokyo => rule:weather
+kenapa hujan terus ya => agent
+cuaca gimana mika => rule:weather
+nanti sore hujan gak => rule:weather
+berapa derajat sekarang => rule:weather
+cuacanya bagus buat jogging nggak => rule:weather | agent
+apakah hari ini akan hujan di bogor => rule:weather
+gimana cuaca => rule:weather
+
+# time — clock and calendar questions
+jam berapa sekarang => rule:time_now
+sekarang jam berapa => rule:time_now
+jam berapa => rule:time_now
+pukul berapa sekarang => rule:time_now
+hari ini tanggal berapa => rule:date_today
+tanggal berapa sih => rule:date_today
+hari apa sekarang => rule:date_today
+sekarang hari apa ya => rule:date_today
+besok tanggal berapa => rule:date_today | agent
+tahun berapa sekarang => agent | rule:date_today
+jam di new york berapa => agent
+berapa hari lagi lebaran => agent
+
+# system — battery, CPU, RAM, disk space
+baterai berapa persen => rule:system kind=battery
+batre tinggal berapa => rule:system kind=battery
+lagi dicas nggak => rule:system kind=battery
+baterainya masih banyak => rule:system kind=battery
+info sistem => rule:system kind=system
+cek ram => rule:system kind=system
+pemakaian cpu berapa => rule:system kind=system
+laptop ku lemot kenapa ya => agent
+sisa disk berapa => rule:system kind=system
+cpu nya panas nggak => rule:system | agent
+berapa lama lagi baterai habis => rule:system kind=battery
+laptopnya lagi ngecas kan => rule:system kind=battery
+
+# notes
+catat beli susu => rule:note_add
+catet beli telur dong => rule:note_add
+tulis catatan besok rapat jam 9 => rule:note_add
+kak catat liat jadwal kuliah ya => rule:note_add text="catat liat jadwal kuliah"
+gue mau catat ide konten baru => rule:note_add
+simpan catatan nomor wifi kantor => rule:note_add
+bacain catatan => rule:note_read
+catatanku apa aja => rule:note_read
+lihat catatan terakhir => rule:note_read
+buka catatan => rule:note_open
+catat => rule:note_add
+tambah catatan beli kado buat mika => rule:note_add text="tambah catatan beli kado buat mika"
+catat dong nomor plat motor b 1234 xyz => rule:note_add
+hapus catatan => agent
+apa isi catatanku => rule:note_read
+
+# screen — "look at my screen"
+lihat layarku => rule:screen
+liatin layar dong => rule:screen
+apa yang ada di layar => rule:screen
+jelasin layar ini => rule:screen
+bacain tulisan di layar => rule:screen
+ini error apa ya di layar => rule:screen | agent
+cek jendela ini => rule:screen
+tolong lihat layar aku ada apa => rule:screen
+screenshot layar => agent | rule:screen
+terangkan tampilan layar => rule:screen
+
+# clipboard
+rangkum yang aku copy => rule:clipboard action=summarize
+terjemahin yang aku copy => rule:clipboard action=translate
+bacain clipboard => rule:clipboard action=read
+jelaskan teks yang aku salin => rule:clipboard action=explain
+ringkas copy-an tadi => rule:clipboard action=summarize
+translate yang barusan aku copy ke inggris => rule:clipboard action=translate
+artikan teks yang dicopy => rule:clipboard
+rangkumin clipboard dong => rule:clipboard action=summarize
+baca yang aku copy => rule:clipboard action=read
+terjemahkan clipboard ke bahasa jepang => rule:clipboard action=translate
+apa isi clipboard => rule:clipboard | agent
+tempel yang aku copy => agent
+
+# memory — long-term facts about the user
+ingat bahwa aku suka kopi => rule:memory_add
+inget ya aku alergi udang => rule:memory_add
+tolong ingat nama pacarku rina => rule:memory_add
+apa yang kamu ingat tentang aku => rule:memory_list
+kamu tahu apa aja tentang aku => rule:memory_list
+lupakan bahwa aku suka kopi => rule:memory_forget
+lupain soal pacarku => rule:memory_forget
+hapus semua ingatan => rule:memory_forget_all
+reset memori kamu => rule:memory_forget_all
+kamu ingat nggak aku suka apa => agent | rule:memory_list
+ingat pin atm aku 123456 => rule:memory_add
+simpan di memori kalau aku kerja di jakarta => rule:memory_add
+ingat ya ulang tahunku tanggal 5 mei => rule:memory_add
+aku suka banget nasi padang => agent
+inget nggak kemarin kita ngobrol apa => agent
+
+# news — briefing and headlines
+selamat pagi mika => agent:chat
+briefing pagi => rule:briefing
+berita hari ini => rule:news
+berita terbaru dong => rule:news
+ada berita apa => rule:news
+headline hari ini => rule:news
+kasih rangkuman hari ini => rule:briefing | agent
+apa agenda aku hari ini => rule:briefing | rule:reminder_list | agent
+bacain berita => rule:news
+berita teknologi terbaru => agent | rule:news
+morning briefing => rule:briefing
+info hari ini apa aja => rule:briefing | agent
+
+# disk — "why is my disk full" and cache cleanup
+kenapa disk c ku penuh => rule:disk_report
+cariin penyebab disk c penuh => rule:disk_report
+penyimpanan laptop penuh banget => rule:disk_report
+apa yang makan tempat di disk => rule:disk_report
+cek isi disk c => rule:disk_report
+cek detail disk => rule:disk_report deep=True
+scan disk c => rule:disk_report deep=True
+disk c tinggal dikit nih => rule:disk_report
+hapus cache nvidia => rule:disk_clean categories=nvidia
+bersihin cache => rule:disk_clean categories=
+hapus file sementara => rule:disk_clean categories=temp
+hapusin cache npm => rule:disk_clean categories=npm
+bersihkan disk c => rule:disk_clean
+kosongin cache shader => rule:disk_clean categories=nvidia,directx
+hapus cache chrome => rule:disk_clean unsupported=chrome
+hapus crash dump => rule:disk_clean categories=crash
+kosongkan tempat sampah => not:disk_clean
+hapus file laporan => not:disk_clean
+format disk c => not:disk_clean,power
+hapus semua file di downloads => not:disk_clean
+
+# power — shutdown, restart, sleep, lock (always confirmed by voice)
+matikan laptop => rule:power action=shutdown
+matiin laptop dong => rule:power action=shutdown
+tolong matikan komputer => rule:power action=shutdown
+restart laptop => rule:power action=restart
+mulai ulang komputer => rule:power action=restart
+kunci laptop => rule:power action=lock
+sleep laptop dong => rule:power action=sleep
+tidurkan laptop => rule:power action=sleep
+logout => rule:power action=logout
+shutdown => rule:power action=shutdown
+mohon matikan laptop => rule:power action=shutdown
+shutdown sekarang juga => rule:power action=shutdown
+jangan matikan laptop => not:power
+jangan dimatiin laptopnya ya => not:power
+cara matikan laptop yang benar => not:power
+kenapa laptop ku mati sendiri => not:power
+laptopnya jangan di sleep dulu => not:power
+restart laptop kalau sudah jam 12 => rule:power_later
+matikan laptop 30 menit lagi => rule:power_later
+matikan layar => not:power
+
+# files — local file and folder search
+buka file laporan => rule:open_file
+cari file skripsi revisi => rule:open_file
+buka folder downloads => rule:open_file
+buka downloads => rule:open_file_alias
+buka dokumen proposal => rule:open_file
+cari dokumen cv aku => rule:open_file
+buka folder foto liburan => rule:open_file
+buka file excel penjualan => rule:open_file
+temukan file invoice => rule:open_file
+buka file yang kemarin aku download => agent | rule:open_file
+buka foto liburan => rule:open_app | rule:open_file
+buka file presentasi.pptx => rule:open_file
+rename file laporan jadi final => agent
+pindahin file ke desktop => agent
+kirim file laporan ke email => agent
+
+# chat — small talk (offline templates when no AI is connected)
+apa kabar => agent:chat
+halo => agent:chat
+makasih ya => agent:chat
+makasih mika => agent:chat
+terima kasih banyak => agent:chat
+kamu siapa => agent:chat
+kamu siapa sih => agent:chat
+siapa yang bikin kamu => agent
+kamu bisa apa aja => agent:chat
+aku capek nih => agent:chat
+aku bosen => agent:chat
+gabut nih => agent:chat
+ngobrol yuk => agent:chat
+temenin aku dong => agent:chat
+cerita lucu dong => agent:chat
+kamu keren deh => agent:chat
+maaf ya => agent:chat
+selamat malam => agent:chat
+aku mau tidur => agent:chat
+good night mika => agent:chat
+lagi ngapain => agent:chat
+kamu lucu banget => agent:chat
+aku sayang kamu mika => agent
+kamu manusia bukan => agent
+bisa nyanyi nggak => agent
+
+# curhat — work, relationships, family, feelings (always the AI, never a rule action)
+aku capek banget sama kerjaan => agent
+bos aku marah marah terus hari ini => agent
+aku dimarahin atasan di depan semua orang => agent
+gajiku nggak naik naik padahal lembur terus => agent
+aku pengen resign tapi takut => agent
+rekan kerjaku suka ngambil kredit kerjaanku => agent
+pacarku jarang bales chat => agent
+aku berantem sama pacar semalam => agent
+kayaknya pacarku selingkuh => agent
+aku baru putus => agent
+aku bingung mau lanjut atau putus => agent
+aku kangen mantan => agent
+orang tuaku nggak setuju sama pacarku => agent
+aku berantem sama ibu => agent
+ayahku sakit dan aku khawatir => agent
+adikku susah diatur => agent
+aku ngerasa nggak dihargai di rumah => agent
+aku kesepian akhir akhir ini => agent:chat
+aku overthinking terus tiap malam => agent:chat
+aku stres mikirin skripsi => agent:chat
+aku nggak bisa tidur => agent
+aku ngerasa gagal => agent
+temanku ngomongin aku di belakang => agent
+mika aku mau curhat => agent:chat
+boleh curhat nggak => agent
+aku butuh saran soal kerjaan => agent
+menurut kamu aku harus gimana => agent
+aku lagi down banget => agent
+kenapa ya aku selalu insecure => agent
+aku iri sama temen yang udah sukses => agent
+
+# crisis — self-harm statements: must reach the AI, never a rule action
+aku pengen mati aja => rule:crisis
+aku mau bunuh diri => rule:crisis
+rasanya hidupku nggak ada gunanya => rule:crisis
+aku pengen menghilang aja dari dunia => rule:crisis
+aku udah nggak kuat lagi => rule:crisis
+aku nyakitin diriku sendiri => rule:crisis
+mending aku nggak ada => rule:crisis
+aku capek hidup => rule:crisis
+
+# knowledge — questions for the AI
+apa itu machine learning => agent
+jelaskan fotosintesis dong => agent
+siapa presiden indonesia sekarang => agent
+berapa jarak bumi ke matahari => agent
+kenapa langit warnanya biru => agent
+gimana cara bikin nasi goreng => agent
+apa bedanya virus dan bakteri => agent
+terjemahkan aku cinta kamu ke bahasa jepang => agent
+berapa 15 persen dari 250 ribu => agent
+hitung 128 dikali 47 => agent
+1 dollar berapa rupiah => agent
+apa ibu kota australia => agent
+siapa penemu lampu => agent
+bikinin puisi tentang hujan => agent
+ceritain dongeng sebelum tidur => agent
+kasih ide nama kucing => agent
+bantu aku bikin caption instagram => agent
+apa itu python => agent
+cara install python di windows => agent
+rekomendasi film horor bagus => agent
+
+# unbuilt — features that do not exist yet: the AI explains, and no wrong action fires
+kirim pesan wa ke ibu bilang aku pulang telat => agent
+telepon ibu => agent
+chat pacarku bilang aku kangen => agent
+kirim email ke pak budi => agent
+balas email terakhir => agent
+pesan gojek ke kantor => agent
+pesenin makanan dong => agent
+transfer 100 ribu ke rina => agent
+beliin pulsa 50 ribu => agent
+cek saldo rekening => agent
+nyalakan lampu kamar => agent
+matikan lampu => not:power,volume
+nyalakan ac => agent
+nyalakan wifi => agent
+matikan bluetooth => not:power,volume
+terangin layar => agent
+redupkan layar => agent
+mode hemat baterai => agent | rule:system
+mode pesawat => agent
+screenshot => agent
+rekam layar => agent
+ketikin surat lamaran => agent
+bikinin powerpoint tentang ai => agent
+buka email terakhir dari bos => agent
+jadwal aku besok apa => agent | rule:reminder_list
+tambah acara ke kalender besok jam 2 => rule:reminder_set | agent
+foto aku sekarang => agent
+putar netflix film horor => not:music
+download video youtube ini => agent
+install aplikasi zoom => agent
+uninstall discord => not:open_app
+update windows => agent
+cek kecepatan internet => agent
+sambungkan ke wifi rumah => agent
+connect headset bluetooth => agent
+cari hp aku => agent
+nyalakan kamera => rule:open_app name=kamera | agent
+bacain pdf ini => agent
+rangkum dokumen skripsi aku => agent
+buatkan jadwal belajar => agent
+pesan tiket kereta ke bandung => agent
+order grab => agent
+booking hotel di bali => agent
+
+# safety — negations, how-to questions, meta talk, risky wording
+jangan buka youtube => not:open_website
+gak usah putar lagu => not:music
+nggak jadi hapus cache => not:disk_clean
+jangan hapus apa apa => not:disk_clean
+kalau aku bilang buka youtube kamu ngapain => not:open_website
+gimana cara buka youtube di tv => not:open_website
+youtube itu punya siapa => not:open_website,browser_search
+spotify bagus nggak => not:open_app,music
+kenapa whatsapp aku nggak bisa dibuka => not:open_app
+apa itu discord => not:open_app
+hapus semua file => not:disk_clean
+format laptop => not:disk_clean,power
+matikan antivirus => not:power
+buka file sistem windows => rule:open_file | agent
+jalankan cmd sebagai admin => rule:open_app | agent
+hapus system32 => not:disk_clean
+iya => agent
+batal => agent
+stop => rule:stop
+keluar => rule:stop
+udahan dulu ya => rule:conversation_stop
+cukup => not:power
+nggak usah buka spotify => not:open_app,music
+jangan matiin suaranya => not:volume
+gak jadi restart => not:power
+
+# compound — two requests in one sentence (ideally the AI plans both steps)
+buka spotify terus putar lagu tulus => agent
+buka youtube lalu matikan laptop => agent | rule:power
+nyalakan timer 5 menit terus putar lagu => agent | rule:timer_set
+cek cuaca dan berita hari ini => agent | rule:weather | rule:news
+ingatkan aku jam 7 dan putar lagu santai => rule:reminder_set | agent
+buka chrome terus cari resep rendang => agent
+catat beli susu dan ingatkan jam 5 => rule:note_add | agent
+matikan suara terus kunci laptop => rule:power | rule:volume | agent
+cari berita bola lalu bacakan => agent
+buka whatsapp dan kirim pesan ke ibu => rule:open_app | agent
+
+# noisy — speech-to-text mistakes, typos, chat abbreviations, punctuation
+buka you tube => rule:open_website name=youtube
+puter lagu tulus => rule:music query=tulus
+buka wassap => rule:open_app name=whatsapp
+buka spoti fai => rule:open_app name=spotify
+cuaca hari ini. => rule:weather
+Buka YouTube Dong!! => rule:open_website name=youtube
+BUKA CHROME => rule:open_app name="google chrome"
+jam brp skrg => rule:time_now
+bsk hujan gk => rule:weather
+tlg bukain yt => rule:open_website name=youtube
+mksh mika => agent:chat
+pasang timer 5 mnt => rule:timer_set
+ingetin aku mnm obat jam 7 => rule:reminder_set
+volum 50 => rule:volume
+buka kalkulatr => agent:open_unknown | rule:open_app
+halo mika buka youtube => rule:open_website name=youtube
+halo mica putar lagu tulus => rule:music query=tulus
+hai mikha jam berapa sekarang => rule:time_now
+buka youtube, terus cari smitty => rule:browser_search provider=youtube query=smitty
+kenapa disk C-ku penuh? => rule:disk_report
+
+# english — English and Indonesian-English mixing
+open youtube => rule:open_website name=youtube
+play some music => rule:music | agent
+what time is it => rule:time_now | agent
+how's the weather today => rule:weather | agent
+set timer 10 minutes => rule:timer_set | agent
+remind me to call mom at 7 => rule:reminder_set | agent
+turn up the volume => rule:volume | agent
+pause the music => rule:media | agent
+next song => rule:media action=next | agent
+shutdown laptop => rule:power action=shutdown
+lock my laptop => rule:power action=lock | agent
+search cara masak rendang di google => rule:browser_search provider=google query="cara masak rendang"
+tolong open spotify dong => rule:open_app name=spotify
+can you check my battery => rule:system kind=battery | agent
+literally capek banget hari ini => agent
+which is better iphone atau samsung => agent
+btw cuaca jakarta gimana => rule:weather
+fyi aku udah makan => agent
+kamu tuh kayak chatgpt ya => agent
+please buka gmail => rule:open_website name=gmail

@@ -88,7 +88,13 @@ _CONVERSATIONAL_REPLACEMENTS = {
     "setelin": "setel", "setelkan": "setel", "nyetel": "setel", "nyetelin": "setel", "muterin": "putar", "puter": "putar",
     "bukak": "buka", "bukakno": "buka", "bukaen": "buka", "matiin": "matikan", "berhentiin": "hentikan",
     "lanjutin": "lanjutkan", "hapusin": "hapus", "bersihin": "bersihkan", "bersiin": "bersihkan",
-    "kosongin": "kosongkan",
+    "kosongin": "kosongkan", "googlingin": "googling", "jelasin": "jelaskan", "rangkumin": "rangkum",
+    "ringkasin": "ringkas",
+    # Chat abbreviations (typed commands) and common speech-to-text spellings of app names.
+    "brp": "berapa", "skrg": "sekarang", "bsk": "besok", "gk": "nggak", "tlg": "tolong", "mksh": "makasih",
+    "makasi": "makasih", "yg": "yang", "jgn": "jangan", "gmn": "gimana", "knp": "kenapa", "udh": "udah",
+    "blm": "belum", "bgt": "banget", "dlu": "dulu", "trs": "terus", "tdk": "tidak", "volum": "volume",
+    "wassap": "whatsapp", "wasap": "whatsapp", "watsap": "whatsapp", "whatsap": "whatsapp", "spotifai": "spotify",
     # Site names as people type them or as speech-to-text writes them.
     "yutub": "youtube", "yutube": "youtube", "yutup": "youtube", "youtub": "youtube", "yt": "youtube",
     "gugel": "google", "gugle": "google",
@@ -98,6 +104,7 @@ _REPLACEMENT_WORDS = re.compile(
 )
 _SLANG_PATTERNS = [
     (r"\byou\s+tube\b", "youtube"),  # speech-to-text sometimes splits the name
+    (r"\bspoti\s+fai\b", "spotify"),
     # Javanese/Sundanese "di" (nang, neng, ning, dina), only before a site name so song titles stay intact.
     (r"\b(?:nang|neng|ning|nok|nong|ing|dina)\s+(?=(?:youtube|google|spotify)\b)", "di "),
 ]
@@ -110,15 +117,20 @@ _ACTIONS = (
     r"|hapus|bersihkan|kosongkan)"
 )
 # Notes, reminders, and memories: after the polite layers are peeled, their words are stored as the user said them.
-_CONTENT_HEAD = re.compile(r"^(?:catat|catet|catatlah|catetin|tulis|simpan|ingat|inget|ingatlah|ingatkan|ingetin|ingatin)\b")
+_CONTENT_HEAD = re.compile(
+    r"^(?:catat|catet|catatlah|catetin|tulis|simpan|ingat|inget|ingatlah|ingatkan|ingetin|ingatin|ingetkan|bangunin"
+    r"|bangunkan|(?:tambah|tambahkan|bikin|buat|buatkan)\s+(?:catatan|pengingat|alarm)|(?:pasang|setel|set)\s+(?:pengingat|alarm))\b"
+)
 _END_PARTICLES = r"(?:dong|donk|ya|yah|please|plis|pls|deh|sih|yuk|yok|ayo|ah|nih|gan|cuy|lah)"
 
 # (pattern, replacement), applied until nothing changes, so "kak tolong dong cariin ... ya" peels layer by layer.
 _CONVERSATIONAL_PATTERNS = [
     (r"^(?:zeta|mika|kak|kakak|bang|mas|mbak|mba|min|gan|sis|bro|yuk|yok|ayo|ayok|hayuk|hayu|dong|donk)\s+", ""),
     (r"^(?:tolong|tulung|coba|please|plis|pls|mohon|minta tolong|punten)\s+", ""),
-    (r"^(aku\s+)?(mau|pengen|ingin)\s+", ""),
-    # "gue mau nonton X" → "nonton X", but only before an action, so "gue mau tidur" still reads as small talk.
+    # "jangan lupa ingetin aku ..." is a request, not a negation.
+    (r"^jangan\s+lupa\s+(?=(?:ingetin|ingatkan|ingatin|ingetkan|bangunin|bangunkan|catat|catet)\b)", ""),
+    (r"^(?:kalau|kalo)\s+bisa\s+", ""),  # "kalau bisa matikan laptop" is a polite request, not a condition
+    # "gue mau nonton X" → "nonton X", but only before an action, so "aku mau tidur" and "mau hujan" keep their meaning.
     (rf"^(?:{_SUBJECTS}\s+)?(?:(?:lagi|lg)\s+)?{_WANTS}\s+(?={_ACTIONS}\b)", ""),
     (r"^(bisa\s+(?:(?:nggak|ngga|gak|ga|enggak|engga)\s+)?)?(tolong\s+)?", ""),
     (r"^(\w+)\s+(?:dong|donk|deh|sih|yuk|yok|nih|lah)\s+(?=\S)", r"\1 "),  # "cari dong video X" → "cari video X"
@@ -139,7 +151,9 @@ def clean_conversational_command(command: str) -> str:
     command = _REPLACEMENT_WORDS.sub(lambda match: _CONVERSATIONAL_REPLACEMENTS[match.group(1)], command)
     for pattern, replacement in _SLANG_PATTERNS:
         command = re.sub(pattern, replacement, command)
-    return normalize(_peel(command))  # peel again: "gue mau nyariin" only reads as "gue mau cari" after replacing
+    command = _peel(command)  # again: "gue mau nyariin" only reads as "gue mau cari" after replacing
+    # A trailing "mika" addresses her ("puterin lagu sedih dong mika"); notes returned above keep it as content.
+    return normalize(_peel(re.sub(r"\s+(?:mika|zeta)$", "", command)))
 
 
 def _peel(command: str) -> str:

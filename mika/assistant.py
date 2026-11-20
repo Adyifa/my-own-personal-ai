@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .audio.wake import strip_wake_prefix
-from .brain.router import Route, Router
+from .brain.router import Route, Router, is_crisis
 from .config import DATA_DIR
 from .memory import MemoryStore, as_spoken, sensitive_reason
 from .metrics import LatencyLog
@@ -25,6 +25,15 @@ from .skills.news import NewsFeed, short_title
 from .skills.power import execute_power_action
 from .skills.vision import VISION_SYSTEM_PROMPT, ScreenCapture
 from .text import clean_conversational_command, contains_phrase, normalize, safe_print
+
+# "matikan laptop 30 menit lagi": what Mika cannot schedule yet, and the phrase to say when it is time.
+POWER_LATER_WORDS = {
+    "shutdown": ("mematikan laptop", "matikan laptop"),
+    "restart": ("restart laptop", "restart laptop"),
+    "sleep": ("mode sleep", "sleep laptop"),
+    "lock": ("mengunci laptop", "kunci laptop"),
+    "logout": ("logout", "logout"),
+}
 
 # Casual answers to "Yakin?", on top of the yes/no words in commands.json.
 _CANCEL_PHRASES = ("gak jadi", "nggak jadi", "ga jadi", "ngga jadi", "enggak jadi", "tidak jadi", "gak usah", "nggak usah",
@@ -281,6 +290,25 @@ class Assistant:
         else:
             self.speaker.say("Mika nggak nemu memori yang cocok.")
 
+    def respond_to_crisis(self, command: str) -> None:
+        """A fixed, careful reply to self-harm statements, written by people rather than generated, and spoken even
+        offline. The conversation stays open, and the AI (when connected) sees it as context for what comes next."""
+        safety = self.config.get("safety", {})
+        lines = safety.get("crisis_lines", [])
+        call = safety.get("crisis_call", "telepon 119 ekstensi 8, atau 112 kalau darurat")
+        reply = (
+            "Aku dengar kamu, makasih sudah mau cerita. Kamu nggak sendirian, dan perasaan seberat ini pantas "
+            f"dibantu orang lain juga. Kalau kamu ingin menyakiti diri, tolong hubungi orang yang kamu percaya sekarang, "
+            f"atau {call}. Aku tetap di sini kalau kamu mau cerita."
+        )
+        self.speaker.say(reply)
+        if self.display is not None and lines:
+            self.display.show(self.name, "Kamu bisa menghubungi:\n" + "\n".join(f"  {line}" for line in lines))
+        session = getattr(self.agent, "session", None)
+        if session is not None:
+            session.add_turn(command, reply)
+        self.keep_conversation_alive()
+
     def run_disk_report(self, args: dict[str, Any]) -> None:
         """"kenapa disk C-ku penuh?": measure (read-only), say the main causes, show the full list on screen."""
         deep = bool(args.get("deep"))
@@ -347,6 +375,10 @@ class Assistant:
             self.speaker.say(self.message("empty_command", "Aku belum menangkap perintahnya."))
             return True
 
+        if is_crisis(command):
+            # Nothing may stand between a self-harm statement and the support reply: no pending "Yakin?", no follow-up.
+            self.pending_action = None
+            self.follow_up = None
         if self.handle_pending_confirmation(command):
             return True
         if self.handle_follow_up(command):
@@ -464,6 +496,14 @@ class Assistant:
             self.speaker.say("Mau cari apa?")
         elif intent == "ask_music":
             self.speaker.say("Mau putar lagu apa?")
+        elif intent == "crisis":
+            self.respond_to_crisis(command)
+        elif intent == "power_later":
+            what, phrase = POWER_LATER_WORDS.get(args.get("action", ""), ("itu", "perintahnya"))
+            self.speaker.say(
+                f"Mika belum bisa menjadwalkan {what}. Kalau sudah waktunya, bilang {phrase}, "
+                "nanti Mika tanya konfirmasi dulu."
+            )
         elif intent == "power":
             question = self.request_confirmation(
                 args["action"], args["label"], lambda: self.power_runner(args["action"])

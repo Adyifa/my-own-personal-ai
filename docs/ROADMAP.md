@@ -64,6 +64,9 @@ runs on a Windows laptop (RTX 3050, 4 GB VRAM), while keeping the old fast, offl
 
 ## Stage 5: Quality and presentation
 
-Eval set of ~50 Indonesian utterances → expected route/tool (routing accuracy) and a latency
-benchmark for STT/LLM/TTS; English README with architecture diagram, setup, 60-second demo script;
-AI tab in the Settings GUI; verified PyInstaller build.
+- [x] Routing evaluation: 599 unique utterances in 30 categories (standard and casual Indonesian, Sundanese, Javanese,
+      speech-to-text errors, English mixing, features that do not exist yet, curhat, self-harm statements, negations),
+      each with the behaviour Mika should show. Run `python -m evals.routing`. 598/599 route as intended; the safety
+      categories (power, disk, safety, crisis, curhat, unbuilt) must pass 100% in the test suite.
+- [ ] Two requests in one sentence ("buka spotify terus putar lagu tulus"): today only the first part runs.
+- [ ] Latency benchmark for STT/LLM/TTS, 60-second demo script, AI tab in the Settings GUI, verified PyInstaller build.

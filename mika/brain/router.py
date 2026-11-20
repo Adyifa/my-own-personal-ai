@@ -33,7 +33,7 @@ class Catalog(Protocol):
 
 STOP_COMMANDS = {"keluar", "selesai", "berhenti", "stop", "exit", "quit"}
 HELP_COMMANDS = {"bantuan", "help", "daftar perintah", "apa saja", "perintah apa saja"}
-CONVERSATION_STOP = ["selesai ngobrol", "stop ngobrol", "udah dulu", "sudah dulu", "cukup ngobrol"]
+CONVERSATION_STOP = ["selesai ngobrol", "stop ngobrol", "udah dulu", "sudah dulu", "cukup ngobrol", "udahan dulu", "udahan ya"]
 OPEN_VERBS = {"buka", "open", "jalankan", "launch"}
 GAME_VERBS = {"main", "mainkan", "game", "launch", "jalankan", "buka", "play"}
 SEARCH_VERBS = ("cari", "search", "telusuri", "googling")
@@ -57,7 +57,7 @@ CHAT_RULES: list[tuple[str, list[str], set[str]]] = [
     ("greeting", [], {"halo", "hai", "hey", "hello", "helo", "halo mika", "hai mika"}),
     ("how_are_you", ["apa kabar", "kabar kamu", "gimana kabar", "lagi sehat"], set()),
     ("identity", ["siapa kamu", "kamu siapa", "nama kamu", "kenalin diri"], set()),
-    ("thanks", ["makasih ya", "terima kasih ya"], {"makasih", "terima kasih", "thanks", "thank you"}),
+    ("thanks", ["makasih ya", "terima kasih ya", "makasih banyak", "terima kasih banyak"], {"makasih", "terima kasih", "thanks", "thank you"}),
     ("praise", ["kamu keren", "kamu pintar", "kamu pinter", "kamu lucu", "kamu imut", "mantap", "good job"], set()),
     ("apology", ["maaf ya", "sorry ya"], {"maaf", "sorry"}),
     ("bored", ["aku bosan", "aku bosen", "lagi bosan", "lagi bosen", "gabut"], set()),
@@ -93,11 +93,12 @@ _SCREEN = re.compile(
     r"\b(?:lihat|liat|cek|baca|bacain|bacakan|jelaskan|terangkan|periksa)\s+(?:isi\s+)?"
     r"(?P<target>layar(?:ku| aku| saya)?|screen|jendela(?: ini)?|tampilan(?: layar)?)\b"
     r"|\bapa (?:yang )?(?:ada |tampil )?di layar(?:ku)?\b"
+    r"|\b(?:baca|bacain|bacakan)\s+(?:tulisan|teks)\s+(?:yang ada\s+)?di\s+(?P<target2>layar(?:ku)?)\b"
 )
 _CLIPBOARD = re.compile(
     r"^(?:tolong\s+)?(?P<verb>rangkum|rangkumkan|ringkas|ringkaskan|terjemahkan|terjemahin|translate|artikan|jelaskan"
     r"|terangkan|bacakan|bacain|baca)\b.*?\b(?:clipboard|copy-?an|copyan|hasil copy(?:an)?"
-    r"|(?:teks\s+)?yang\s+(?:aku\s+|ku\s+|tadi\s+|barusan\s+)?(?:copy|kopi|salin|dicopy|disalin|dikopi))\b"
+    r"|(?:teks\s+)?yang\s+(?:(?:aku|ku|tadi|barusan|baru|saya)\s+){0,2}(?:copy|kopi|salin|dicopy|disalin|dikopi))\b"
 )
 _CLIPBOARD_ACTIONS = {
     "rangkum": "summarize", "rangkumkan": "summarize", "ringkas": "summarize", "ringkaskan": "summarize",
@@ -175,7 +176,8 @@ MEDIA_COMMANDS = {
              "lanjut lagunya"],
     "next": ["next", "skip", "lagu berikutnya", "lagu selanjutnya", "lagu lain", "ganti lagu", "lewati lagu", "skip lagu",
              "skip lagu ini", "next lagu", "lagu sesudahnya"],
-    "previous": ["previous", "prev", "lagu sebelumnya", "lagu tadi", "kembali ke lagu sebelumnya", "balik ke lagu sebelumnya"],
+    "previous": ["previous", "prev", "lagu sebelumnya", "lagu tadi", "kembali ke lagu sebelumnya", "balik ke lagu sebelumnya",
+                 "balik ke lagu tadi", "kembali ke lagu tadi", "lagu yang tadi"],
 }
 _MEDIA_LOOKUP = {phrase: action for action, phrases in MEDIA_COMMANDS.items() for phrase in phrases}
 _VOLUME_VERBS = re.compile(
@@ -183,7 +185,11 @@ _VOLUME_VERBS = re.compile(
     r"|turunin|kecilkan|kecilin|pelankan|pelanin|kurangi|rendahkan|matikan|matiin|nyalakan|nyalain|hidupkan|bisukan"
     r"|aktifkan|bunyikan|diamkan)\b"
 )
-_BATTERY_WORDS = {"baterai", "batre", "batere", "baterei", "batrei", "battery"}
+# Verbs that only ever mean loudness ("kerasin dikit dong"), and "too loud/quiet" phrasing.
+_VOLUME_ONLY_VERBS = {"kerasin", "keraskan", "kencengin", "kencangkan", "pelanin", "pelankan", "lirihkan"}
+_LOUDNESS = re.compile(r"\b(?:kekecilan|kegedean|kebesaran|kekencengan|kekerasan|terlalu (?:keras|kenceng|kecil|pelan|besar)"
+                       r"|kurang keras|kurang kenceng|nggak kedengeran|gak kedengeran)\b")
+_BATTERY_WORDS = {"baterai", "batre", "batere", "baterei", "batrei", "battery", "baterainya", "batrenya", "baterenya"}
 _CHARGING = re.compile(r"\b(?:lagi |sedang )?(?:dicas|di cas|ngecas|nge cas|dicharge|charging)\b")
 _SYSTEM_PHRASES = ("info sistem", "informasi sistem", "status laptop", "status komputer", "kondisi laptop", "performa laptop",
                    "pemakaian cpu", "penggunaan cpu", "pemakaian ram", "penggunaan ram", "sisa disk", "sisa penyimpanan",
@@ -191,9 +197,35 @@ _SYSTEM_PHRASES = ("info sistem", "informasi sistem", "status laptop", "status k
 _NOTE_ADD = re.compile(r"^(?:tolong\s+)?(?:catatlah|catat|catet|tulis catatan|simpan catatan|bikin catatan|buat catatan|tambah catatan|tambahkan catatan)\b")
 _NOTE_READ = re.compile(
     r"^(?:(?:bacakan|baca|bacain|lihat|cek|apa|apa saja|daftar|sebutkan)\s+)?(?:isi\s+)?catatan(?:ku| aku| saya)?"
-    r"(?:\s+(?:terakhir|terbaru|apa saja|aku|ku))?$"
+    r"(?:\s+(?:terakhir|terbaru|apa saja|apa aja|apa|aku|ku))?$"
 )
 _NOTE_OPEN = re.compile(r"^buka\s+(?:file\s+)?catatan(?:ku| aku| saya)?$")
+
+# Safety ------------------------------------------------------------------------------------
+# Self-harm statements get a fixed, careful reply (also offline), never a template or a web search.
+_CRISIS = re.compile(
+    r"\b(?:bunuh diri|mengakhiri hidup|ngakhirin hidup|akhiri hidup|nyakitin diri|menyakiti diri|melukai diri|self ?harm"
+    r"|lebih baik aku mati|(?:nggak|gak|ga|tidak) mau hidup lagi|hidup(?:ku| aku| gue)? (?:nggak|gak|ga|tidak) ada gunanya)"
+)
+# Phrases that can also describe a device ("laptopku mau mati aja nih"): crisis only when no device is named.
+_CRISIS_SOFT = re.compile(
+    r"\b(?:pengen mati|ingin mati|pingin mati|mau mati aja|mending aku mati|mending aku (?:nggak|gak|ga) ada|capek hidup"
+    r"|lelah hidup|pengen menghilang|ingin menghilang)"
+    r"|^(?:aku|gue|gw|saya)\s+(?:udah|sudah)\s+(?:nggak|gak|ga|tidak)\s+kuat(?:\s+lagi)?$"
+)
+_DEVICE_WORDS = {"laptop", "laptopku", "hp", "hpku", "handphone", "baterai", "batre", "batere", "komputer", "pc", "lampu",
+                 "tv", "mesin", "motor", "mobil", "aplikasi", "app", "wifi", "internet", "listrik", "server", "game", "kipas"}
+# "jangan matikan laptop": a negated action is acknowledged, never executed.
+_NEGATED = re.compile(r"^(?:jangan|gak usah|nggak usah|ga usah|enggak usah|tidak usah|gak jadi|nggak jadi|ga jadi"
+                      r"|enggak jadi|tidak jadi|gak perlu|nggak perlu|tidak perlu)\s+(?P<rest>.+)$")
+_ACTION_INTENTS = {"power", "disk_clean", "open_app", "open_game", "open_website", "open_file", "open_file_alias",
+                   "browser_search", "music", "media", "volume", "timer_set", "timer_cancel", "reminder_set",
+                   "reminder_cancel", "snooze", "note_add", "memory_add", "memory_forget", "memory_forget_all", "screen",
+                   "clipboard"}
+# Power commands that are really questions ("cara matikan laptop") or for later ("30 menit lagi") never shut down now.
+_POWER_QUESTION = re.compile(r"^(?:cara|gimana|bagaimana|kenapa|mengapa|apa|apakah|kok|kapan|bisa nggak|bisakah)\b|\bcaranya\b")
+_POWER_LATER = re.compile(r"\b(?:kalau|kalo|jika|setelah|sesudah|nanti|habis|abis|sebelum|tunggu|besok|malam ini)\b"
+                          r"|\b(?:menit|jam|detik)\s+lagi\b|\b(?:sejam|semenit)\b|\bjam\s+\d")
 
 _EXPLICIT_PROVIDER = re.compile(r"(?:^|\s)(?:di|ke|pake|pakai|lewat|via)\s+(google|youtube|yt)(?:\s|$)")
 _OPEN_YOUTUBE_THEN = re.compile(r"^(?:buka|open)\s+youtube\s+(?:terus|trus|lalu|habis itu|abis itu|kemudian|dan)\s+(.+)$")
@@ -202,6 +234,11 @@ _BROWSER_HINT = re.compile(r"^(?:di|pake|pakai|lewat|via|ke|dengan|dalam)\b")
 _FILLER_WORDS = {"aja", "saja", "ajah", "sekarang", "skrg", "dulu", "lagi", "lg", "dong", "deh", "ya", "yah", "sebentar",
                  "bentar", "please", "plis", "yuk", "nih", "sih", "lah", "ah", "doang", "kembali", "mika",
                  "terus", "trus", "lalu", "kemudian", "dan", "tentang"}  # "buka youtube terus" trailing off
+_MUSIC_WORDS = {"lagu", "lagunya", "musik", "musiknya", "playlist", "album", "podcast", "music", "song", "songs", "spotify"}
+_BARE_MUSIC = {"lagu", "lagunya", "musik", "musiknya", "playlist", "music"}
+# "youtube itu punya siapa" is a question about YouTube, not a search on it.
+_ABOUT_YOUTUBE = re.compile(r"^(?:(?:buka|open)\s+)?youtube\s+(?:itu|tuh|ini|adalah|apa|siapa|kenapa|kok|gimana|bagaimana"
+                            r"|berapa|kapan|punya|milik|bagus|jelek|error|down|lemot|nggak|gak|ga)\b")
 _FIRST_RESULT_PHRASES = ["nonton", "tonton", "buka video", "putar video", "hasil pertama"]
 
 
@@ -223,6 +260,13 @@ class Router:
         tokens = command.split()
         if not command:
             return Route("rule", "empty")
+        if is_crisis(command):
+            return Route("rule", "crisis")
+        negated = _NEGATED.match(command)
+        if negated:
+            inner = self.route(negated.group("rest"))
+            if inner.path == "rule" and inner.intent in _ACTION_INTENTS:
+                return Route("rule", "never_mind")  # "Oke." — and nothing happens
         if command in STOP_COMMANDS:
             return Route("rule", "stop")
         if command in HELP_COMMANDS or command.startswith("bantuan") or "daftar perintah" in command:
@@ -259,6 +303,10 @@ class Router:
         """Shutdown/restart/sleep/lock/logout (always confirmed by voice before running)."""
         for action, phrases in POWER_PHRASES:
             if any(contains_phrase(command, phrase) for phrase in phrases):
+                if _POWER_QUESTION.search(command):
+                    return None  # "cara matikan laptop yang benar" is a question for the AI
+                if _POWER_LATER.search(command):
+                    return Route("rule", "power_later", {"action": action})  # scheduling is not supported yet
                 return Route("rule", "power", {"action": action, "label": POWER_LABELS[action]})
         return None
 
@@ -325,7 +373,7 @@ class Router:
             return None
         words = set(tokens)
 
-        if {"timer", "countdown"} & words or "hitung mundur" in command:
+        if {"timer", "timernya", "countdown"} & words or "hitung mundur" in command:
             if _CANCEL_WORDS & words:
                 return Route("rule", "timer_cancel", {"text": command})
             if re.search(r"\b(sisa|berapa lagi|tinggal berapa|masih berapa|cek|status|berapa)\b", command):
@@ -348,13 +396,18 @@ class Router:
         if _DATE_QUESTION.search(command):
             return Route("rule", "date_today")
 
-        weather_word = bool({"cuaca", "prakiraan"} & words) or ("suhu" in words and not _NOT_WEATHER & words)
+        weather_word = (
+            bool({"cuaca", "cuacanya", "prakiraan", "payung", "cerah", "mendung", "gerimis", "berawan"} & words)
+            or (bool({"suhu", "derajat"} & words) and not _NOT_WEATHER & words)
+            or ("panas" in words and "luar" in words)
+        )
         if (weather_word or _RAIN_QUESTION.search(command)) and not explicit_provider(command):
             return Route("rule", "weather", {"text": command})
 
         if command in _MEDIA_LOOKUP:
             return Route("rule", "media", {"action": _MEDIA_LOOKUP[command]})
-        if "volume" in words or command in {"mute", "unmute", "bisukan"} or ({"suara", "suaranya"} & words and _VOLUME_VERBS.search(command)):
+        loudness = {"suara", "suaranya"} & words and (_VOLUME_VERBS.search(command) or _LOUDNESS.search(command))
+        if "volume" in words or command in {"mute", "unmute", "bisukan"} or loudness or tokens[0] in _VOLUME_ONLY_VERBS:
             return Route("rule", "volume", {"text": command})
 
         if len(tokens) <= 6 and (_BATTERY_WORDS & words or _CHARGING.search(command)):
@@ -375,8 +428,17 @@ class Router:
         if {"youtube", "video"} & set(tokens):
             return None
         rewritten = rewrite(command, MUSIC_REWRITES)
-        if "spotify" not in rewritten.split() and not rewritten.startswith(tuple(f"{verb} " for verb in MUSIC_VERBS)):
-            return None
+        starts_with_verb = rewritten.startswith(tuple(f"{verb} " for verb in MUSIC_VERBS))
+        on_spotify = re.search(r"\b(?:di|ke|pake|pakai|lewat|via)\s+spotify\b", rewritten)
+        opens_spotify = re.fullmatch(r"(?:(?:buka|open|jalankan|putar|mainkan|play)\s+)?(?:aplikasi\s+)?spotify", rewritten)
+        if not (starts_with_verb or on_spotify or opens_spotify):
+            return None  # "spotify bagus nggak" is a question, not a song request
+        music_words = _MUSIC_WORDS & set(rewritten.split())
+        if not music_words and not opens_spotify:
+            if rewritten.startswith(("mainkan ", "play ")) and not self._is_song_alias(rewritten):
+                return None  # "mainkan valorant": a game or app, let the next matchers or the AI decide
+            if self._starts_with_app(clean_music_query(strip_command_words(rewritten))):
+                return None  # "putar netflix film horor" is about Netflix, not a Spotify search
         target = strip_command_words(rewritten)
         # "mainkan cs2" / "play valorant" are games, not songs.
         if self._is_game(clean_music_query(target)):
@@ -389,6 +451,8 @@ class Router:
                 query = song_query
                 break
         query = clean_music_query(query)
+        if query in _BARE_MUSIC:
+            return Route("rule", "ask_music")  # "putar lagu" names no song
         if query == "spotify":
             return self._open_spotify()  # "buka spotify" opens Spotify itself, not a search for the word "spotify"
         if not query:
@@ -430,6 +494,8 @@ class Router:
         if compound:
             command = f"{compound.group(1)} di youtube"  # "buka youtube terus cari smitty" → "cari smitty di youtube"
         original = command
+        if _ABOUT_YOUTUBE.match(command):
+            return None
         opened = re.sub(r"^(buka|open)\s+", "", command)
         if opened.startswith("youtube "):
             rest = opened[len("youtube "):]
@@ -510,7 +576,19 @@ class Router:
         if has_open_verb and {"website", "web", "situs"} & set(tokens) and target and " " not in target:
             return Route("rule", "open_website", {"name": target, "url": f"https://{target}", "kind": "url"})
 
-        # 4. "buka chrome" -> the shortest app alias containing every spoken word ("google chrome").
+        # 4a. "main dota" -> the shortest game alias containing every spoken word ("dota 2").
+        if GAME_VERBS & set(tokens) and game_target:
+            wanted = set(game_target.split())
+            games = [
+                (len(normalize(alias)), alias, value)
+                for alias, value in aliases_of("open_game").items()
+                if wanted <= set(normalize(alias).split())
+            ]
+            if games:
+                _, alias, value = min(games, key=lambda item: item[0])
+                return _named_route("open_game", alias, value)
+
+        # 4b. "buka chrome" -> the shortest app alias containing every spoken word ("google chrome").
         if has_open_verb and target:
             target_tokens = set(target.split())
             candidates = [
@@ -530,14 +608,34 @@ class Router:
         return any(normalize(alias) == name for source in sources for alias in source())
 
     def _is_game(self, name: str) -> bool:
-        """True if the name is a known game (so "mainkan cs2" is not a song)."""
+        """True if the name is a known game, also partly ("mainkan apex" → Apex Legends), so it is not a song."""
         name = normalize(name)
+        wanted = set(name.split())
         return bool(name) and any(
-            normalize(alias) == name or contains_phrase(name, normalize(alias)) for alias in self.catalog.games()
+            normalize(alias) == name or contains_phrase(name, normalize(alias)) or wanted <= set(normalize(alias).split())
+            for alias in self.catalog.games()
+        )
+
+    def _is_song_alias(self, command: str) -> bool:
+        return any(contains_phrase(command, normalize(alias)) for alias in self.config.get("music", {}).get("songs", {}))
+
+    def _starts_with_app(self, query: str) -> bool:
+        """"netflix film horor" starts with an installed app's name (Spotify itself excluded)."""
+        return any(
+            len(alias) >= 3 and alias != "spotify" and (query == alias or query.startswith(alias + " "))
+            for alias in (normalize(name) for name in self.catalog.apps())
         )
 
 
 # Pure helpers --------------------------------------------------------------------------
+
+
+def is_crisis(command: str) -> bool:
+    """Self-harm statements ("aku pengen mati aja"), checked before anything else."""
+    command = normalize(command)
+    if _CRISIS.search(command):
+        return True
+    return bool(_CRISIS_SOFT.search(command)) and not _DEVICE_WORDS & set(command.split())
 
 
 def _named_route(intent: str, alias: str, value: str) -> Route:
@@ -610,6 +708,7 @@ def clean_music_query(query: str) -> str:
     for pattern in [
         r"^(tolong\s+)?(putar|mainkan|play|dengerin|dengarkan|setel)\s+",
         r"^lagu\s+",
+        r"^(?:dari|oleh|punya)\s+",
         r"\s+(di|ke|pake|pakai)\s+spotify$",
         r"\s+spotify$",
     ]:

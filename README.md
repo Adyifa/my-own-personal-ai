@@ -71,6 +71,7 @@ Mika's answers below are illustrative; the actions are what the code does.
 | AI safety and prompt-injection defence | [tools.py](mika/brain/tools.py), [web_search.py](mika/skills/web_search.py) |
 | Hybrid routing: fast rules first, AI for the rest | [router.py](mika/brain/router.py) |
 | Testing AI features without a real model | [tests/](tests/) |
+| Evaluation-driven development: 599 real-world Indonesian utterances (slang, Sundanese, Javanese, speech-to-text errors, curhat, self-harm statements) with the expected behaviour; safety categories must pass 100% | [evals/routing_cases.txt](evals/routing_cases.txt), [test_routing_eval.py](tests/test_routing_eval.py) |
 | Refactoring legacy code without breaking it | [assistant.py](assistant.py) (old entry point still works), [test_router.py](tests/test_router.py) |
 
 ### Architecture
@@ -126,6 +127,7 @@ Problems found while testing on the real laptop, and fixed:
 - Microsoft Store apps (WhatsApp, Spotify, Settings, Camera: 163 entries on this laptop) have no shortcut file, so the Start Menu scan missed them, and "buka spotify" searched Spotify for the word "spotify". Mika now asks Windows for the full Start list (`Get-StartApps`, about 1.2 s in the background at startup) and opens Store apps the way the Start Menu does; Indonesian names and abbreviations ("pengaturan", "kamera", "wa", "vs code") work when the app is installed. Opening Calculator this way was verified on this laptop.
 - Only 3 of 24 casual or regional ways of asking for a YouTube video worked correctly. Without an AI model, 14 were not understood at all ("gue mau nonton smitty", Sundanese "carikeun…", Javanese "golekno… nang youtube"), 3 searched Google instead ("yutub", "you tube"), and 4 searched a garbled query ("smitty nang") or opened only the YouTube home page. A cleanup step now maps slang and regional verbs, subject-plus-"want" phrases, particles, and site-name spellings to the standard command before the rules run, keeping words that are content ("wayang golek", "ingatkan aku telepon kak"). All 24 now open YouTube in under 5 ms with no model.
 - A before/after comparison of 236 everyday commands, run before committing that change, caught 5 regressions in the first version ("buka youtube aja" searched YouTube for "aja"), which were fixed. The same run found older problems: the Start Menu scan had picked up a shortcut named just "Uninstall" (an emulator's uninstaller) that a sentence containing "buka … uninstall" could launch, and a shortcut named "Website" that "buka website detik.com" opened instead. Uninstallers and generic entries are now left out of the catalog. Spoken confirmations also only accepted single words. Now "iya mika" confirms, "gak jadi deh" cancels, and an unclear "ya udah" asks again.
+- A 599-utterance evaluation ([evals/routing_cases.txt](evals/routing_cases.txt)) found 48 routing mistakes. The most serious: "jangan matikan laptop" and "cara matikan laptop" asked to shut down, "matikan laptop 30 menit lagi" would have shut down right after "iya", and offline Mika answered "aku pengen mati aja" with "cari itu di Google". Self-harm statements now get a fixed, careful reply with support numbers (also offline, and it cancels any pending confirmation), negated commands are acknowledged and never executed, and scheduled power commands are explained instead of run. 598 of 599 now route as intended, and the safety categories must pass 100% in the test suite.
 
 ### Code tour
 
@@ -151,7 +153,7 @@ Every class and function in the AI code has a one-line comment explaining what i
 | 2 | Alexa-style skills: timers, reminders, alarms, weather, date and time, media and volume, battery, notes | Done |
 | 3 | Offline speech recognition (Whisper + VAD), interrupting Mika while she speaks, per-turn latency log | Done |
 | 4 | "Look at my screen" (vision), clipboard, morning briefing, news headlines, long-term memory | Done |
-| 5 | Evaluation set, latency benchmark, demo video | Planned |
+| 5 | Evaluation set (599 utterances, done), latency benchmark, demo video | In progress |
 
 Measured so far on the target laptop (i7-11800H, RTX 3050 4 GB):
 
@@ -181,6 +183,7 @@ python assistant.py --text --mute   # type instead of talk, no sound
 python mic_test.py                  # check the microphone and speech recognition
 python tray_assistant.py            # full voice assistant in the system tray
 python -m pytest                    # run the tests
+python -m evals.routing             # routing accuracy on 599 utterances
 ```
 
 API keys are optional and go in a `.env` file (see [.env.example](.env.example)); they are never committed. Full user guide (Indonesian): [docs/PANDUAN_PENGGUNA.md](docs/PANDUAN_PENGGUNA.md).
@@ -278,6 +281,7 @@ Jawaban Mika di bawah ini hanya ilustrasi; aksinya sesuai dengan yang dikerjakan
 | Keamanan AI dan pertahanan terhadap prompt injection | [tools.py](mika/brain/tools.py), [web_search.py](mika/skills/web_search.py) |
 | Routing hibrida: aturan cepat dulu, AI untuk sisanya | [router.py](mika/brain/router.py) |
 | Menguji fitur AI tanpa model sungguhan | [tests/](tests/) |
+| Pengembangan berbasis evaluasi: 599 kalimat bahasa Indonesia sehari-hari (slang, Sunda, Jawa, salah dengar speech-to-text, curhat, pernyataan menyakiti diri) dengan perilaku yang diharapkan; kategori keamanan wajib lulus 100% | [evals/routing_cases.txt](evals/routing_cases.txt), [test_routing_eval.py](tests/test_routing_eval.py) |
 | Refactor kode lama tanpa merusaknya | [assistant.py](assistant.py) (entry point lama tetap jalan), [test_router.py](tests/test_router.py) |
 
 ### Arsitektur
@@ -333,6 +337,7 @@ Masalah yang ditemukan saat diuji di laptop sungguhan, dan sudah diperbaiki:
 - Aplikasi Microsoft Store (WhatsApp, Spotify, Settings, Camera: 163 entri di laptop ini) tidak punya file shortcut, jadi scan Start Menu melewatkannya, dan "buka spotify" malah mencari kata "spotify" di Spotify. Sekarang Mika meminta daftar Start lengkap dari Windows (`Get-StartApps`, sekitar 1,2 detik di belakang saat startup) dan membuka aplikasi Store dengan cara yang sama seperti Start Menu; sebutan Indonesia dan singkatan ("pengaturan", "kamera", "wa", "vs code") ikut dikenali kalau aplikasinya terpasang. Membuka Kalkulator dengan cara ini sudah dicek di laptop ini.
 - Hanya 3 dari 24 cara santai atau daerah untuk minta video YouTube yang berhasil dengan benar. Tanpa model AI, 14 sama sekali tidak dipahami ("gue mau nonton smitty", Sunda "carikeun…", Jawa "golekno… nang youtube"), 3 malah mencari di Google ("yutub", "you tube"), dan 4 mencari kata yang rusak ("smitty nang") atau hanya membuka beranda YouTube. Sekarang ada tahap perapian yang mengubah kata kerja slang dan daerah, frasa "gue mau", partikel, dan ejaan nama situs menjadi perintah standar sebelum aturan dijalankan, tanpa membuang kata yang merupakan isi ("wayang golek", "ingatkan aku telepon kak"). Ke-24 kalimat itu sekarang membuka YouTube dalam waktu kurang dari 5 ms tanpa model.
 - Perbandingan sebelum/sesudah pada 236 perintah sehari-hari, dijalankan sebelum perubahan itu di-commit, menemukan 5 regresi di versi pertamanya ("buka youtube aja" malah mencari "aja" di YouTube), dan semuanya sudah diperbaiki. Uji yang sama menemukan masalah lama: scan Start Menu ikut mengambil shortcut bernama "Uninstall" saja (uninstaller sebuah emulator) yang bisa terbuka oleh kalimat berisi "buka … uninstall", dan shortcut bernama "Website" yang malah terbuka saat bilang "buka website detik.com". Sekarang uninstaller dan entri generik tidak dimasukkan ke katalog. Konfirmasi suara juga dulu hanya menerima satu kata. Sekarang "iya mika" melanjutkan, "gak jadi deh" membatalkan, dan jawaban ragu "ya udah" membuat Mika bertanya lagi.
+- Evaluasi 599 kalimat ([evals/routing_cases.txt](evals/routing_cases.txt)) menemukan 48 kesalahan routing. Yang paling serius: "jangan matikan laptop" dan "cara matikan laptop" malah meminta shutdown, "matikan laptop 30 menit lagi" akan langsung mematikan laptop setelah "iya", dan saat offline Mika menjawab "aku pengen mati aja" dengan "cari itu di Google". Sekarang pernyataan menyakiti diri mendapat balasan tetap yang hati-hati beserta nomor layanan (juga saat offline, dan membatalkan konfirmasi yang sedang menunggu), perintah yang dinegasikan hanya dijawab "Oke" tanpa dijalankan, dan perintah daya terjadwal dijelaskan, bukan dijalankan. 598 dari 599 kalimat sekarang masuk ke tujuan yang benar, dan kategori keamanan wajib lulus 100% di test suite.
 
 ### Tur kode
 
@@ -358,7 +363,7 @@ Setiap class dan fungsi di kode AI punya komentar satu baris yang menjelaskan ap
 | 2 | Skill ala Alexa: timer, pengingat, alarm, cuaca, jam dan tanggal, media dan volume, baterai, catatan | Selesai |
 | 3 | Pengenalan suara offline (Whisper + VAD), memotong Mika saat sedang bicara, log latensi per giliran | Selesai |
 | 4 | "Lihat layarku" (vision), clipboard, briefing pagi, judul berita, memori jangka panjang | Selesai |
-| 5 | Dataset evaluasi, benchmark latensi, video demo | Direncanakan |
+| 5 | Dataset evaluasi (599 kalimat, selesai), benchmark latensi, video demo | Sedang dikerjakan |
 
 Yang sudah diukur di laptop target (i7-11800H, RTX 3050 4 GB):
 
@@ -388,6 +393,7 @@ python assistant.py --text --mute   # mengetik, bukan bicara, tanpa suara
 python mic_test.py                  # mengecek mikrofon dan pengenalan suara
 python tray_assistant.py            # asisten suara lengkap di system tray
 python -m pytest                    # menjalankan test
+python -m evals.routing             # akurasi routing pada 599 kalimat
 ```
 
 API key bersifat opsional dan disimpan di file `.env` (lihat [.env.example](.env.example)); file ini tidak pernah masuk Git. Panduan pemakaian lengkap: [docs/PANDUAN_PENGGUNA.md](docs/PANDUAN_PENGGUNA.md).
