@@ -113,6 +113,7 @@ flowchart LR
 10. **Memory that cannot be poisoned.** Facts the user asks Mika to remember live in a local file, are injected into the AI's context only when relevant, and can be listed and deleted by voice; wiping everything needs a spoken "iya". Passwords, PINs, card and ID numbers are refused. Each turn tracks whether the AI has read outside text (a web page, the screen, the clipboard); after that, the memory tool is refused, so a web page cannot plant a false "memory".
 11. **Private by default, small context.** Screenshots stay in memory and go to the local vision model; sending them to a cloud model is an explicit opt-in. Rarely used tools (screen, clipboard, memory, shutdown) are offered to the model only when the user's sentence mentions their topic, which keeps the tool list small for a 4k-token context.
 12. **One persona everywhere.** How Mika talks (your name, aku-kamu / gue-lo / saya-Anda, advice style, humor) is set once, in the Settings tab "Kepribadian". The AI gets it as instructions, and every fixed reply (confirmations, errors, curhat, the crisis reply) passes through one converter, so the offline templates and the model sound like the same Mika. The instructions also carry the rule for advice: listen first, offer options with their trade-offs, and leave the decision to the user.
+13. **Curhat stays on the laptop.** When the user talks about work, relationships, family, or feelings, the AI switches to a listening mode with no tools at all, so a small model cannot wander off into web searches mid-story. These turns go only to a local model (Ollama) unless the user allows the cloud, and they are marked private, so they are left out of the history whenever a later question may be answered by a cloud model. Every model provider reports whether it runs on this machine, which is what that decision is based on.
 
 Problems found while testing on the real laptop, and fixed:
 
@@ -155,7 +156,7 @@ Every class and function in the AI code has a one-line comment explaining what i
 | 3 | Offline speech recognition (Whisper + VAD), interrupting Mika while she speaks, per-turn latency log | Done |
 | 4 | "Look at my screen" (vision), clipboard, morning briefing, news headlines, long-term memory | Done |
 | 5 | Evaluation set (609 utterances, done), latency benchmark, demo video | In progress |
-| 6 | Companion: A (one persona for the whole system, offline curhat, two commands in one sentence) done; B (curhat mode), C (memory of past conversations), D (learning), E (conversation tests) planned | In progress |
+| 6 | Companion: A (one persona for the whole system, offline curhat, two commands in one sentence) and B (curhat mode on the local model) done; C (memory of past conversations), D (learning), E (conversation tests) planned | In progress |
 
 Measured so far on the target laptop (i7-11800H, RTX 3050 4 GB):
 
@@ -325,6 +326,7 @@ flowchart LR
 10. **Memori yang tidak bisa diracuni.** Hal yang diminta pengguna untuk diingat disimpan di file lokal, dimasukkan ke konteks AI hanya saat relevan, dan bisa dilihat serta dihapus lewat suara; menghapus semuanya butuh jawaban "iya". Password, PIN, nomor kartu, dan nomor identitas ditolak. Setiap giliran mencatat apakah AI sudah membaca teks dari luar (halaman web, layar, clipboard); setelah itu tool memori ditolak, jadi halaman web tidak bisa menanam "ingatan palsu".
 11. **Privat secara default, konteks hemat.** Tangkapan layar hanya ada di memori dan dikirim ke model vision lokal; mengirimnya ke model cloud harus dinyalakan sendiri. Tool yang jarang dipakai (layar, clipboard, memori, shutdown) hanya ditawarkan ke model saat kalimat pengguna menyinggung topiknya, supaya daftar tool tetap muat di konteks 4k token.
 12. **Satu kepribadian di mana-mana.** Cara Mika bicara (namamu, aku-kamu / gue-lo / saya-Anda, gaya saran, humor) diatur sekali di tab Settings "Kepribadian". AI menerimanya sebagai instruksi, dan setiap balasan tetap (konfirmasi, pesan error, curhat, balasan krisis) melewati satu pengubah, jadi template offline dan model terdengar sebagai Mika yang sama. Instruksinya juga memuat aturan saran: dengarkan dulu, tawarkan pilihan beserta untung-ruginya, dan biarkan pengguna yang memutuskan.
+13. **Curhat tetap di laptop.** Saat pengguna bercerita soal kerjaan, hubungan, keluarga, atau perasaan, AI pindah ke mode mendengarkan tanpa tool sama sekali, jadi model kecil tidak bisa tiba-tiba mencari di web di tengah cerita. Giliran ini hanya dikirim ke model lokal (Ollama) kecuali pengguna mengizinkan cloud, dan ditandai privat, jadi tidak ikut dalam riwayat ketika pertanyaan berikutnya mungkin dijawab model cloud. Setiap provider model melaporkan apakah ia berjalan di mesin ini, dan itulah dasar keputusannya.
 
 Masalah yang ditemukan saat diuji di laptop sungguhan, dan sudah diperbaiki:
 
@@ -367,7 +369,7 @@ Setiap class dan fungsi di kode AI punya komentar satu baris yang menjelaskan ap
 | 3 | Pengenalan suara offline (Whisper + VAD), memotong Mika saat sedang bicara, log latensi per giliran | Selesai |
 | 4 | "Lihat layarku" (vision), clipboard, briefing pagi, judul berita, memori jangka panjang | Selesai |
 | 5 | Dataset evaluasi (609 kalimat, selesai), benchmark latensi, video demo | Sedang dikerjakan |
-| 6 | Teman ngobrol: A (satu kepribadian untuk seluruh sistem, curhat offline, dua perintah dalam satu kalimat) selesai; B (mode curhat), C (ingatan percakapan), D (belajar), E (uji percakapan) direncanakan | Sedang dikerjakan |
+| 6 | Teman ngobrol: A (satu kepribadian untuk seluruh sistem, curhat offline, dua perintah dalam satu kalimat) dan B (mode curhat di model lokal) selesai; C (ingatan percakapan), D (belajar), E (uji percakapan) direncanakan | Sedang dikerjakan |
 
 Yang sudah diukur di laptop target (i7-11800H, RTX 3050 4 GB):
 

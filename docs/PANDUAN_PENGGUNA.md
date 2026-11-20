@@ -356,7 +356,16 @@ Keputusan selalu di tanganmu: kalau Mika memberi saran, bentuknya pilihan besert
 
 ### Curhat
 
-Kamu bisa cerita soal kerjaan, kuliah, pacar, keluarga, atau teman. Kalau AI aktif, Mika menanggapi sebagai teman ngobrol. Kalau AI belum tersambung, Mika tetap mendengarkan dengan balasan yang lembut dan kamu bisa lanjut bercerita tanpa kata panggil, tapi Mika belum bisa memahami isi ceritanya. Ingatan percakapan dan saran yang lebih personal menyusul di tahap berikutnya.
+Kamu bisa cerita soal kerjaan, kuliah, pacar, keluarga, teman, atau perasaanmu. Mika masuk **mode curhat**:
+
+- Mika menanggapi perasaanmu dulu, bertanya paling banyak satu hal, dan tidak menghakimi siapa pun.
+- Saran mengikuti pengaturan "Saat curhat" di tab Kepribadian. Kalau Mika memberi saran, bentuknya dua atau tiga pilihan beserta untung-ruginya, dan keputusan dikembalikan ke kamu.
+- Selama curhat, Mika tidak mencari di web atau membuka aplikasi kecuali kamu memintanya. Perintah seperti `pasang timer 5 menit` tetap jalan.
+- Selama sekitar 45 detik setelah tiap balasan, kamu bisa lanjut bercerita tanpa kata panggil. Kalimat lanjutan seperti "dia nggak pernah dengerin aku" tetap dianggap bagian dari cerita. Bilang `selesai ngobrol` untuk menutup.
+
+**Privasi:** curhat hanya diproses model AI lokal (Ollama) di laptop ini. Curhat tidak dikirim ke AI cloud, dan tidak ikut terbawa ketika kamu bertanya hal lain yang dijawab AI cloud. Kalau mau mengizinkan cloud, centang "Izinkan curhat diproses AI cloud" di tab Kepribadian.
+
+Kalau model lokal belum terpasang, Mika bilang sekali bahwa otak AI lokalnya belum aktif, lalu tetap mendengarkan dengan balasan yang lembut. Untuk mengaktifkan, pasang Ollama lalu jalankan `ollama pull qwen3:4b`. Ingatan percakapan menyusul di tahap berikutnya.
 
 ### Dua perintah sekaligus
 

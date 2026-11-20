@@ -81,8 +81,12 @@ may suggest options, and always leaves the decision to the user. Built in steps,
       through one converter. Offline curhat (work, love, family, friends, feelings, asking for advice) gets listening
       replies instead of "belum masuk command". Two or three commands in one sentence run step by step, with a
       confirmation step only allowed last. Spotify searches open in the app when it is installed.
-- [ ] B. Curhat mode for the AI: reflect feelings, ask before advising, options with trade-offs, no decisions for the
-      user; curhat stays on the local model unless cloud use is allowed. Needs a working model (Ollama).
+- [x] B. Curhat mode for the AI: reflect feelings, at most one question, advice as options with trade-offs, no
+      decisions for the user, no tools. Curhat goes only to local models (each provider reports whether it is local)
+      unless companion.allow_cloud is on, and curhat turns are private: left out of the history of any request that may
+      reach a cloud model. Follow-ups stay curhat for 45 s; commands still run. Without a local model Mika says so once
+      and keeps listening with templates. Verified with scripted models and the real app's failure path; the model's
+      actual replies are not checked yet (Ollama is not installed on the development laptop).
 - [ ] C. Memory of past conversations: short local summaries (topics, feelings, open threads) recalled when the topic
       returns; people's names only after the user agrees; listable and deletable by voice; shared with other features.
 - [ ] D. Learning from feedback ("aku cuma mau didengerin" becomes a style rule), optional check-ins, a weekly

@@ -18,7 +18,8 @@ class ConversationSession:
         idle_seconds: float = 900,
         clock: Callable[[], float] = time.monotonic,
     ):
-        self._turns: deque[tuple[str, str]] = deque(maxlen=max(1, max_turns))  # answers only, never raw tool output
+        # (user, answer, private): answers only, never raw tool output; private turns are curhat
+        self._turns: deque[tuple[str, str, bool]] = deque(maxlen=max(1, max_turns))
         self.idle_seconds = idle_seconds
         self._clock = clock
         self._last_activity: float | None = None
@@ -28,21 +29,24 @@ class ConversationSession:
         """True when the conversation has been idle longer than the limit."""
         return self._last_activity is not None and self._clock() - self._last_activity > self.idle_seconds
 
-    def history(self) -> list[Message]:
-        """Previous turns as chat messages, or nothing if the session went stale."""
+    def history(self, *, include_private: bool = True) -> list[Message]:
+        """Previous turns as chat messages, or nothing if the session went stale. Private (curhat) turns are left out
+        when the request may go to a cloud model, so a later question never carries the story along."""
         if self._expired():
             self.clear()
         messages: list[Message] = []
-        for user_text, assistant_text in self._turns:
+        for user_text, assistant_text, private in self._turns:
+            if private and not include_private:
+                continue
             messages.append(Message("user", user_text))
             messages.append(Message("assistant", assistant_text))
         return messages
 
-    def add_turn(self, user_text: str, assistant_text: str) -> None:
+    def add_turn(self, user_text: str, assistant_text: str, *, private: bool = False) -> None:
         """Remember one finished turn."""
         if self._expired():
             self.clear()
-        self._turns.append((user_text, assistant_text))
+        self._turns.append((user_text, assistant_text, private))
         self._last_activity = self._clock()
 
     def clear(self) -> None:

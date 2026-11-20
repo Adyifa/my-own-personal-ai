@@ -9,7 +9,7 @@ from typing import Any, Iterator
 
 import httpx
 
-from .base import LLMError, Message, ProviderUnavailable, StreamEvent, ToolCall, parse_arguments
+from .base import LLMError, Message, ProviderUnavailable, StreamEvent, ToolCall, is_local_url, parse_arguments
 
 _FALLBACK_STATUS = {401, 403, 404, 408, 409, 429}  # bad key, missing model, rate limit: try the next provider
 
@@ -18,6 +18,10 @@ class OpenAICompatProvider:
     """Cloud (or local) OpenAI-style LLM, used as the fallback after Ollama."""
 
     name = "openai"
+
+    @property
+    def local(self) -> bool:
+        return is_local_url(self.base_url)  # an OpenAI-style server on localhost (LM Studio) counts as local
 
     def __init__(self, config: dict[str, Any], *, client: httpx.Client | None = None):
         self.config = config

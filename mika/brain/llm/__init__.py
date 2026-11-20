@@ -39,6 +39,28 @@ def build_vision_llm(config: dict[str, Any]) -> FallbackProvider:
     return FallbackProvider(providers, cooldown_seconds=float(llm_config.get("failure_cooldown_seconds", 120)))
 
 
+def build_private_llm(config: dict[str, Any]) -> FallbackProvider | None:
+    """The chain for curhat: local models only, unless companion.allow_cloud is on. None when nothing is left."""
+    from .ollama import OllamaProvider
+    from .openai_compat import OpenAICompatProvider
+
+    llm_config = config.get("llm", {})
+    allow_cloud = bool(config.get("companion", {}).get("allow_cloud", False))
+    providers: list[LLMProvider] = []
+    for name in llm_config.get("providers", ["ollama", "openai"]):
+        if name == "ollama":
+            provider: LLMProvider = OllamaProvider(llm_config.get("ollama", {}))
+        elif name in ("openai", "openai_compatible"):
+            provider = OpenAICompatProvider(llm_config.get("openai", {}))
+        else:
+            continue
+        if allow_cloud or getattr(provider, "local", False):
+            providers.append(provider)
+    if not providers:
+        return None
+    return FallbackProvider(providers, cooldown_seconds=float(llm_config.get("failure_cooldown_seconds", 120)))
+
+
 __all__ = [
     "FallbackProvider",
     "LLMError",
@@ -48,5 +70,6 @@ __all__ = [
     "StreamEvent",
     "ToolCall",
     "build_llm",
+    "build_private_llm",
     "build_vision_llm",
 ]

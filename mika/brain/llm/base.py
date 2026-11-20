@@ -5,6 +5,13 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Literal, Protocol
+from urllib.parse import urlparse
+
+
+def is_local_url(url: str) -> bool:
+    """True for a model server on this machine (Ollama, LM Studio): nothing said to it leaves the laptop."""
+    host = (urlparse(url).hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".localhost")
 
 
 @dataclass

@@ -25,6 +25,7 @@ def build_assistant(
     screen: Any = None,
     news: Any = None,
     disk: Any = None,
+    private_llm: Any = None,
 ) -> Assistant:
     """Every dependency is injectable, which is how tests run without mic, speakers, model, screen, or network."""
     speaker = speaker or Speaker.from_config(config)
@@ -41,6 +42,12 @@ def build_assistant(
 
                 vision_llm = build_vision_llm(config)
             assistant.vision_llm = vision_llm
+            if private_llm is None:
+                from .brain.llm import build_private_llm
+
+                # An injected model (tests) also serves curhat; otherwise curhat gets the local-only chain.
+                private_llm = llm if llm is not None else build_private_llm(config)
+            assistant.private_llm = private_llm
         except ImportError as exc:
             # The rule path must keep working even if the AI extras are not installed.
             safe_print(f"[llm] Mode AI nonaktif, dependency belum terpasang: {exc}")

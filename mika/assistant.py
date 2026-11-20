@@ -26,6 +26,9 @@ from .skills.power import execute_power_action
 from .skills.vision import VISION_SYSTEM_PROMPT, ScreenCapture
 from .text import clean_conversational_command, contains_phrase, normalize, safe_print
 
+# Small talk that starts curhat mode too (the AI then listens instead of offering tools).
+_CURHAT_CHAT = {"sad", "stress"}
+
 # Small-talk replies that may carry the user's name ("Halo Yasa, ...").
 _GREETED_CATEGORIES = {"greeting", "morning", "night", "thanks", "praise", "how_are_you", "chat_invite"}
 
@@ -147,6 +150,9 @@ class Assistant:
         self.briefing = Briefing(self.hub, self.news, config)
         self.disk = disk or DiskCare(config, data_dir=data_dir)
         self.vision_llm = vision_llm  # set by build_agent when AI mode is on
+        self.private_llm: Any = None  # local-only model chain for curhat, set by build_assistant
+        self.curhat_until = 0.0  # while this lasts, follow-ups count as curhat
+        self._told_no_private_model = False
         self.chime: Callable[[], None] = _default_chime if config.get("reminders", {}).get("chime", True) else (lambda: None)
         self.pending_action: PendingAction | None = None
         self.follow_up: Callable[[str], SkillReply | None] | None = None
@@ -325,8 +331,9 @@ class Assistant:
             self.display.show(self.name, "Kamu bisa menghubungi:\n" + "\n".join(f"  {line}" for line in lines))
         session = getattr(self.agent, "session", None)
         if session is not None:
-            session.add_turn(command, reply)
-        self.keep_conversation_alive()
+            session.add_turn(command, reply, private=True)
+        self.curhat_until = time.time() + self.curhat_seconds()  # what follows is a conversation, not commands
+        self.keep_conversation_alive(self.curhat_seconds())
 
     def run_disk_report(self, args: dict[str, Any]) -> None:
         """"kenapa disk C-ku penuh?": measure (read-only), say the main causes, show the full list on screen."""
@@ -581,6 +588,8 @@ class Assistant:
 
     def run_agent(self, route: Route, text: str, command: str) -> bool:
         """Let the LLM answer; if no model is reachable, behave like the pre-AI Mika."""
+        if self.is_curhat(route):
+            return self.run_curhat(route, text, command)
         if self.agent is None:
             return self.offline_fallback(route, command)
 
@@ -606,6 +615,47 @@ class Assistant:
             f"tools={reply.tools_used or '-'} first_token={_fmt_seconds(reply.first_token_seconds)}"
         )
         return True
+
+    def is_curhat(self, route: Route) -> bool:
+        """Curhat starts with a personal story or feeling, and a follow-up inside it ("dia nggak bales dari kemarin")
+        stays curhat even though, on its own, it reads like any other sentence."""
+        category = str(route.args.get("category", ""))
+        if route.intent == "chat" and (category.startswith("curhat") or category in _CURHAT_CHAT):
+            return True
+        return route.intent in ("general", "chat") and time.time() <= self.curhat_until
+
+    def run_curhat(self, route: Route, text: str, command: str) -> bool:
+        """Curhat goes to the local model only (unless cloud is allowed), with the listening rules and no tools.
+        Without such a model Mika still listens with a template, and says once why it cannot say more."""
+        from .brain.llm.base import LLMError
+
+        self.curhat_until = time.time() + self.curhat_seconds()
+        listening = route if route.intent == "chat" else Route("agent", "chat", {"category": "curhat_feeling"})
+        if self.agent is None or self.private_llm is None:
+            return self.offline_curhat(listening, command)
+        try:
+            reply = self.agent.respond(text, should_stop=self._turn_cancel.is_set, mode="curhat", llm=self.private_llm)
+        except LLMError as exc:
+            safe_print(f"[llm] curhat: {exc}")
+            return self.offline_curhat(listening, command)
+        self.last_reply = reply
+        wait = getattr(self.speaker, "wait", None)
+        if callable(wait):
+            wait()
+        self.keep_conversation_alive(self.curhat_seconds())
+        safe_print(f"[agent] curhat provider={reply.provider or '-'} first_token={_fmt_seconds(reply.first_token_seconds)}")
+        return True
+
+    def offline_curhat(self, route: Route, command: str) -> bool:
+        if self.agent is not None and not self._told_no_private_model:
+            self._told_no_private_model = True  # said once per run, not on every sentence of the story
+            self.speaker.say("Otak AI lokal Mika belum aktif, jadi untuk sekarang Mika cuma bisa dengerin.")
+        self.offline_fallback(route, command)
+        self.keep_conversation_alive(self.curhat_seconds())
+        return True
+
+    def curhat_seconds(self) -> float:
+        return float(self.config.get("companion", {}).get("continue_seconds", 45))
 
     def offline_fallback(self, route: Route, command: str) -> bool:
         """What Mika did before the LLM existed, used when no model is reachable."""
@@ -736,16 +786,18 @@ class Assistant:
             f"Website tersedia: {websites or '-'}, aplikasi: {apps or '-'}.{ai_hint}"
         )
 
-    def keep_conversation_alive(self) -> None:
-        """Follow-up mode: for a few seconds the user can reply without saying "Halo Mika"."""
+    def keep_conversation_alive(self, seconds: float | None = None) -> None:
+        """Follow-up mode: for a few seconds the user can reply without saying "Halo Mika" (longer during curhat)."""
         conversation = self.config.get("conversation", {})
         if not conversation.get("enabled", True):
             return
-        self.conversation_until = time.time() + float(conversation.get("continue_seconds", 18))
+        window = seconds if seconds is not None else float(conversation.get("continue_seconds", 18))
+        self.conversation_until = max(self.conversation_until, time.time() + window)
 
     def stop_conversation(self) -> None:
-        """End follow-up mode and wipe the agent's short-term memory."""
+        """End follow-up mode and curhat mode, and wipe the agent's short-term memory."""
         self.conversation_until = 0.0
+        self.curhat_until = 0.0
         self.follow_up = None
         session = getattr(self.agent, "session", None)
         if session is not None:

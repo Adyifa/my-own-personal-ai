@@ -180,6 +180,7 @@ class SettingsWindow:
         self.register.set(str(persona.get("register", "santai")))
         self.advice.set(str(persona.get("advice", "tanya_dulu")))
         self.humor.set(str(persona.get("humor", "sedikit")))
+        self.companion_cloud.set(bool(self.config.get("companion", {}).get("allow_cloud", False)))
         self.refresh_shortcuts()
         self.refresh_raw()
 
@@ -211,6 +212,7 @@ class SettingsWindow:
         persona["register"] = self.register.get() or "santai"
         persona["advice"] = self.advice.get() or "tanya_dulu"
         persona["humor"] = self.humor.get() or "sedikit"
+        self.config.setdefault("companion", {})["allow_cloud"] = bool(self.companion_cloud.get())
         self.config.setdefault("briefing", {})["on_good_morning"] = bool(self.morning_briefing.get())
 
     def build_voice_tab(self) -> None:
@@ -281,6 +283,14 @@ class SettingsWindow:
             )
             ttk.Label(frame, text=hint, foreground="#555", wraplength=480).grid(row=row + 1, column=1, sticky="w")
             row += 2
+        self.companion_cloud = tk.BooleanVar()
+        ttk.Checkbutton(
+            frame, text="Izinkan curhat diproses AI cloud (OpenAI) kalau model lokal tidak ada", variable=self.companion_cloud
+        ).grid(row=row, column=1, sticky="w", pady=(14, 2))
+        ttk.Label(
+            frame, text="Mati: curhat hanya diproses model lokal (Ollama) di laptop ini, dan tidak ikut terkirim ke AI cloud.",
+            foreground="#555", wraplength=480,
+        ).grid(row=row + 1, column=1, sticky="w")
         frame.columnconfigure(1, weight=1)
 
     def on_preset_select(self, event=None) -> None:

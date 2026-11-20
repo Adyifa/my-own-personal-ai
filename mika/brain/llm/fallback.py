@@ -15,6 +15,11 @@ class FallbackProvider:
 
     name = "fallback"
 
+    @property
+    def local(self) -> bool:
+        """True only if every provider in the chain runs on this laptop."""
+        return bool(self.providers) and all(getattr(provider, "local", False) for provider in self.providers)
+
     def __init__(
         self,
         providers: Sequence[LLMProvider],

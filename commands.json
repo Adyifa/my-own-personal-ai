@@ -278,6 +278,10 @@
     "advice": "tanya_dulu",
     "humor": "sedikit"
   },
+  "companion": {
+    "allow_cloud": false,
+    "continue_seconds": 45
+  },
   "memory": {
     "enabled": true,
     "agent_can_remember": true

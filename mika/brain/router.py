@@ -240,15 +240,18 @@ _CURHAT_TOPICS = {
                "abang", "nenek", "kakek", "mertua", "anakku"},
     "friend": {"teman", "temanku", "temen", "temenku", "sahabat", "sahabatku", "bestie", "geng"},
 }
+# Clear emotion words only: "bingung", "susah", "berat" also start tech questions ("aku bingung cara install python"),
+# and curhat mode answers without tools.
 _FEELINGS = re.compile(
-    r"\b(?:sedih|kecewa|marah|kesel|kesal|takut|cemas|khawatir|bingung|gagal|insecure|iri|kesepian|sendirian|stres"
-    r"|stress|capek|cape|lelah|down|hancur|nyesel|menyesal|galau|overthinking|nangis|menangis|sakit hati|dihargai"
-    r"|berantem|bertengkar|ribut|dimarahin|dimarahi|ditinggal|kangen|rindu|susah|berat|pusing|muak|benci|malu|minder"
-    r"|frustasi|frustrasi|tertekan|sakit|tidur)\b"
+    r"\b(?:sedih|kecewa|marah|kesel|kesal|takut|cemas|khawatir|gagal|insecure|iri|kesepian|sendirian|stres"
+    r"|stress|capek|cape|lelah|down|hancur|nyesel|menyesal|galau|overthinking|nangis|menangis|sakit hati|patah hati"
+    r"|dihargai|berantem|bertengkar|ribut|dimarahin|dimarahi|ditinggal|kangen|rindu|muak|benci|malu|minder|frustasi"
+    r"|frustrasi|tertekan|(?:nggak|gak|ga|tidak) bisa tidur|susah tidur|insomnia)\b"
 )
 _FIRST_PERSON = re.compile(r"\b(?:aku|gue|gw|saya)\b|\w{3,}ku\b")
-_ADVICE_ASK = re.compile(r"\b(?:menurut kamu|menurutmu|harus gimana|harus bagaimana|sebaiknya aku|butuh saran|minta saran"
-                         r"|kasih saran)\b")
+# Asking for advice about one's own life ("aku harus gimana"), not "menurutmu ini halaman apa".
+_ADVICE_ASK = re.compile(r"\b(?:aku|gue|saya)\s+(?:harus|sebaiknya|mesti|perlu)\s+(?:gimana|bagaimana|apa|ngapain)\b"
+                         r"|\b(?:butuh|minta|kasih)\s+saran\b|\bsebaiknya\s+(?:aku|gue|saya)\b")
 
 # "X terus Y": two or three commands in one sentence, each routed on its own and run in order.
 _CONNECTOR = re.compile(r"\s+(?:terus|trus|lalu|habis itu|abis itu|kemudian|setelah itu|sesudah itu|abis tu|habis tu)\s+")

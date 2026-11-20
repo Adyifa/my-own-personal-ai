@@ -132,17 +132,29 @@ class Agent:
         if callable(warmup):
             warmup()
 
-    def respond(self, user_text: str, should_stop: Callable[[], bool] | None = None) -> AgentReply:
+    def respond(
+        self,
+        user_text: str,
+        should_stop: Callable[[], bool] | None = None,
+        *,
+        mode: str = "default",
+        llm: LLMProvider | None = None,
+    ) -> AgentReply:
         """Answer one turn; raises LLMError only if nothing was said or done, so the caller can fall back offline.
         `should_stop` is checked per token: on barge-in the stream is closed so the model stops generating."""
         stop = should_stop or (lambda: False)
         started = self._clock()
         out = _SpokenStream(self._speak, self.max_sentences, stop)
         reply = AgentReply(spoken=out.spoken)
-        schemas = self.tools.schemas(user_text)  # tool retrieval: rarely used tools only when relevant
+        curhat = mode == "curhat"
+        model = llm or self.llm
+        # Curhat gets no tools: a small model should listen, not search the web or open apps mid-story.
+        schemas = [] if curhat else self.tools.schemas(user_text)  # tool retrieval: rare tools only when relevant
+        # Curhat turns stay out of requests that may reach a cloud model.
+        include_private = curhat or bool(getattr(model, "local", False))
         messages = [
-            Message("system", build_system_prompt(self.config, context=self._context_note(user_text))),
-            *self.session.history(),
+            Message("system", build_system_prompt(self.config, context=self._context_note(user_text), mode=mode)),
+            *self.session.history(include_private=include_private),
             Message("user", user_text),
         ]
 
@@ -155,7 +167,7 @@ class Agent:
             text_parts: list[str] = []
             calls: list[ToolCall] = []
             reply.llm_calls += 1
-            stream = self.llm.stream_chat(
+            stream = model.stream_chat(
                 messages,
                 schemas if offer_tools else None,
                 temperature=self.temperature,
@@ -200,7 +212,7 @@ class Agent:
 
         reply.full_text = DETAIL_RE.sub("\n", "".join(out.visible)).strip()
         reply.detail = out.segmenter.detail
-        self.session.add_turn(user_text, _history_text(reply))
+        self.session.add_turn(user_text, _history_text(reply), private=curhat)
         return reply
 
     def _run_tools(

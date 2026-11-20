@@ -272,6 +272,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "advice": "tanya_dulu",  # "tanya_dulu" (ask before advising), "langsung", "dengar_saja" (just listen)
         "humor": "sedikit",  # "tidak", "sedikit", "banyak"
     },
+    "companion": {
+        "allow_cloud": False,  # curhat goes only to a local model (Ollama) unless this is on
+        "continue_seconds": 45,  # after curhat, keep listening this long without the wake phrase
+    },
     "memory": {
         "enabled": True,  # facts in data/memory.json, injected into the AI's context
         "agent_can_remember": True,  # the AI may save facts the user states (never after reading web/screen text)

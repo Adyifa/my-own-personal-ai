@@ -8,13 +8,17 @@ from typing import Any, Iterator
 
 import httpx
 
-from .base import LLMError, Message, ProviderUnavailable, StreamEvent, ToolCall, parse_arguments
+from .base import LLMError, Message, ProviderUnavailable, StreamEvent, ToolCall, is_local_url, parse_arguments
 
 
 class OllamaProvider:
     """Free, private, offline LLM on the laptop GPU (default qwen3:4b, fits in 4 GB VRAM)."""
 
     name = "ollama"
+
+    @property
+    def local(self) -> bool:
+        return is_local_url(self.base_url)
 
     def __init__(self, config: dict[str, Any], *, client: httpx.Client | None = None):
         self.base_url = str(config.get("base_url", "http://127.0.0.1:11434")).rstrip("/")
