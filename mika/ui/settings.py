@@ -172,7 +172,7 @@ class SettingsWindow:
         self.barge_in_mode.set(str(self.config.get("barge_in", {}).get("mode", "keyword")))
         self.weather_city.set(str(self.config.get("weather", {}).get("location", "Jakarta")))
         vision = self.config.get("vision", {})
-        self.vision_model.set(str(vision.get("ollama_model", "qwen2.5vl:3b")))
+        self.vision_model.set(str(vision.get("ollama_model", "qwen3.5:4b")))
         self.vision_cloud.set(bool(vision.get("allow_cloud", False)))
         self.morning_briefing.set(bool(self.config.get("briefing", {}).get("on_good_morning", True)))
         persona = self.config.get("persona", {})
@@ -205,7 +205,7 @@ class SettingsWindow:
         self.config.setdefault("barge_in", {})["mode"] = self.barge_in_mode.get() or "keyword"
         self.config.setdefault("weather", {})["location"] = self.weather_city.get().strip() or "Jakarta"
         vision = self.config.setdefault("vision", {})
-        vision["ollama_model"] = self.vision_model.get().strip() or "qwen2.5vl:3b"
+        vision["ollama_model"] = self.vision_model.get().strip() or "qwen3.5:4b"
         vision["allow_cloud"] = bool(self.vision_cloud.get())
         persona = self.config.setdefault("persona", {})
         persona["user_name"] = self.user_name.get().strip()

@@ -170,7 +170,7 @@ def test_images_are_sent_in_each_providers_format():
 
 def test_screenshots_stay_local_unless_cloud_is_allowed(config):
     local = build_vision_llm(config)
-    assert [p.name for p in local.providers] == ["ollama"] and local.providers[0].model == "qwen2.5vl:3b"
+    assert [p.name for p in local.providers] == ["ollama"] and local.providers[0].model == "qwen3.5:4b"
     config["vision"]["allow_cloud"] = True
     both = build_vision_llm(config)
     assert [p.name for p in both.providers] == ["ollama", "openai"]
@@ -341,7 +341,7 @@ def test_missing_vision_model_explains_how_to_install(config, speaker, launcher,
     assistant = make(config, speaker, launcher, everyday, vision=ScriptedLLM([ProviderUnavailable("model not found")]), display=display)
     assistant.handle("lihat layarku")
     assert "model penglihatan" in speaker.said[-1]
-    assert "ollama pull qwen2.5vl:3b" in display.shown[-1][1]
+    assert "ollama pull qwen3.5:4b" in display.shown[-1][1]
 
 
 def test_agent_can_look_at_the_screen(config, speaker, launcher, everyday):

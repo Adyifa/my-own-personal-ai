@@ -229,16 +229,16 @@ _POWER_LATER = re.compile(r"\b(?:kalau|kalo|jika|setelah|sesudah|nanti|habis|abi
 
 # Curhat: a personal topic with "aku/-ku" or a feeling word. Online the AI answers as a listening friend; offline Mika
 # answers with a listening template instead of "belum masuk command".
-_CURHAT_TOPICS = {
-    "work": {"kerja", "kerjaan", "kerjaanku", "pekerjaan", "kantor", "bos", "atasan", "atasanku", "manajer", "rekan",
-             "kolega", "gaji", "gajiku", "lembur", "resign", "dipecat", "phk", "klien", "deadline", "kuliah", "dosen",
-             "skripsi", "tugas", "ujian", "sekolah", "guru"},
+_CURHAT_TOPICS = {  # checked in this order: people first, so "berantem sama ibu soal kerjaan" is about the mother
     "love": {"pacar", "pacarku", "cowokku", "cewekku", "gebetan", "mantan", "putus", "selingkuh", "pdkt", "nikah",
              "tunangan", "suami", "suamiku", "istri", "istriku", "ldr", "jodoh", "crush", "ditolak", "diselingkuhi"},
     "family": {"ibu", "ibuku", "ayah", "ayahku", "bapak", "bapakku", "mama", "mamaku", "papa", "papaku", "mamah",
                "papah", "bunda", "ortu", "ortuku", "keluarga", "keluargaku", "adik", "adikku", "kakak", "kakakku",
                "abang", "nenek", "kakek", "mertua", "anakku"},
     "friend": {"teman", "temanku", "temen", "temenku", "sahabat", "sahabatku", "bestie", "geng"},
+    "work": {"kerja", "kerjaan", "kerjaanku", "pekerjaan", "kantor", "bos", "atasan", "atasanku", "manajer", "rekan",
+             "kolega", "gaji", "gajiku", "lembur", "resign", "dipecat", "phk", "klien", "deadline", "kuliah", "dosen",
+             "skripsi", "tugas", "ujian", "sekolah", "guru"},
 }
 # Clear emotion words only: "bingung", "susah", "berat" also start tech questions ("aku bingung cara install python"),
 # and curhat mode answers without tools.

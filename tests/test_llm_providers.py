@@ -78,6 +78,8 @@ def test_ollama_retries_without_think_for_models_that_reject_it():
     bodies = []
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            return httpx.Response(200, json={"capabilities": ["completion"]})  # no thinking information
         body = json.loads(request.content)
         bodies.append(body)
         if "think" in body:
@@ -88,6 +90,46 @@ def test_ollama_retries_without_think_for_models_that_reject_it():
     events = collect(provider.stream_chat([Message("user", "hai")]))
     assert [e.text for e in events if e.kind == "text"] == ["Halo."]
     assert "think" in bodies[0] and "think" not in bodies[1]
+
+
+def _thinking_server(values, chats, shows):
+    """A fake Ollama whose model reports which `think` values it accepts, and streams reasoning separately."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            shows.append(1)
+            return httpx.Response(200, json={"capabilities": ["completion", "thinking"], "thinking": {"values": values}})
+        body = json.loads(request.content)
+        chats.append(body)
+        lines = [{"message": {"thinking": "Okay, the user asks about the capital."}}] if body.get("think") else []
+        lines.append({"message": {"content": "Canberra."}, "done": True})
+        return httpx.Response(200, content=ndjson(*lines))
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_thinking_only_model_thinks_separately_and_the_reasoning_is_never_spoken():
+    chats, shows = [], []
+    provider = OllamaProvider({"model": "qwen3:4b"}, client=_thinking_server([True], chats, shows))
+    first = collect(provider.stream_chat([Message("user", "ibu kota australia?")]))
+    collect(provider.stream_chat([Message("user", "lagi")]))
+    assert [e.text for e in first if e.kind == "text"] == ["Canberra."]
+    assert chats[0]["think"] is True and chats[1]["think"] is True
+    assert len(shows) == 1  # checked once per provider, not on every turn
+
+
+def test_thinking_only_model_gets_room_to_reach_the_answer():
+    chats = []
+    provider = OllamaProvider({"model": "qwen3:4b"}, client=_thinking_server([True], chats, []))
+    collect(provider.stream_chat([Message("user", "hai")], max_tokens=400))
+    assert chats[0]["options"]["num_predict"] == 400 + 1536
+
+
+def test_model_that_can_skip_thinking_keeps_think_false():
+    chats, shows = [], []
+    provider = OllamaProvider({"model": "qwen3:4b-instruct"}, client=_thinking_server([True, False], chats, shows))
+    collect(provider.stream_chat([Message("user", "hai")]))
+    assert chats[0]["think"] is False
 
 
 def test_ollama_not_running_is_unavailable():

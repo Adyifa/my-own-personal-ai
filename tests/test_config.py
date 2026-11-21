@@ -45,7 +45,7 @@ def test_old_commands_json_gets_new_ai_defaults(tmp_path):
     path = tmp_path / "commands.json"
     path.write_text(json.dumps(old), encoding="utf-8")
     config = ensure_config(path)
-    assert config["llm"]["ollama"]["model"] == "qwen3:4b"
+    assert config["llm"]["ollama"]["model"] == "qwen3.5:4b"
     assert config["websites"]["kampus"] == "https://kampus.ac.id"
     assert config["websites"]["youtube"]  # defaults kept
     assert config["voice"]["edge_rate"] == "-4%"  # preset applied

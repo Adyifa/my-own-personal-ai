@@ -115,7 +115,8 @@ def test_after_a_crisis_reply_the_conversation_continues_as_curhat(config):
     assistant, speaker = make(config, private=local)
     assistant.handle("aku pengen mati aja")
     assistant.handle("semuanya terasa berantakan")
-    assert speaker.text.endswith("Aku di sini. Kamu nggak sendirian.")
+    assert "Aku di sini. Kamu nggak sendirian." in speaker.text
+    assert speaker.said[-1] == "Boleh aku tanya, kamu aman sekarang?"  # the model did not ask, so Mika does
     assert "pengen mati" in spoken_history(local.calls[0])  # the local model sees what came before
 
 
@@ -155,3 +156,39 @@ def test_curhat_prompt_only_in_curhat_mode(config):
     curhat = build_system_prompt(config, mode="curhat")
     assert "Mode curhat" in curhat and "telepon 119 ekstensi 8" in curhat
     assert "Mode curhat" not in build_system_prompt(config)
+
+
+# Lessons from the real model (qwen3.5:4b) ---------------------------------------------------------------------------
+
+
+def test_after_a_crisis_mika_asks_once_whether_the_user_is_safe(config):
+    local = ScriptedLLM(text("Kamu pasti capek banget."), text("Aku di sini."))
+    assistant, speaker = make(config, private=local)
+    assistant.handle("aku pengen mati aja")
+    assistant.handle("semuanya berantakan")
+    assert speaker.said[-1] == "Boleh aku tanya, kamu aman sekarang?"
+    assert "aman sekarang" in system_prompt(local.calls[0])  # the model got the note for this turn too
+    assistant.handle("aku cuma capek")
+    assert speaker.said.count("Boleh aku tanya, kamu aman sekarang?") == 1  # once per crisis
+
+
+def test_no_extra_safety_question_when_the_model_already_asked(config):
+    local = ScriptedLLM(text("Aku di sini. Kamu aman sekarang?"))
+    assistant, speaker = make(config, private=local)
+    assistant.handle("aku capek hidup")
+    assistant.handle("nggak tahu lagi")
+    assert "Boleh aku tanya, kamu aman sekarang?" not in speaker.said
+
+
+def test_preset_style_no_longer_overrides_the_register(config):
+    config["persona"] = {"register": "sopan"}
+    prompt = build_system_prompt(config)
+    assert "'saya' dan 'Anda'" in prompt
+    assert "memanggil pengguna 'kamu'" not in prompt and "santai sehari-hari" not in prompt
+
+
+def test_people_come_before_work_in_curhat_topics(config):
+    from mika.brain.router import curhat_topic
+
+    assert curhat_topic("aku berantem sama ibu soal kerjaan") == "curhat_family"
+    assert curhat_topic("bos aku marah marah terus") == "curhat_work"

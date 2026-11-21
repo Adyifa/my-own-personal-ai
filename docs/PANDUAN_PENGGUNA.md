@@ -7,11 +7,15 @@ Panduan lengkap memakai Mika: perintah suara, tray, settings, build EXE, dan sua
 Perintah yang dikenal (buka youtube, main cs2, sleep laptop, ...) tetap lewat jalur aturan yang cepat dan offline.
 Sisanya (pertanyaan, obrolan, "cari resep rendang", "buka yang kedua") dijawab agent LLM dengan tool calling.
 
-1. Pasang [Ollama](https://ollama.com), lalu unduh model lokal (sekitar 2,5 GB, muat di GPU 4 GB):
+1. Pasang [Ollama](https://ollama.com), lalu unduh model lokal (sekitar 3,3 GB, jalan di GPU 4 GB). Model ini sekaligus dipakai untuk ngobrol, tool, dan "lihat layarku":
 
    ```powershell
-   ollama pull qwen3:4b
+   ollama pull qwen3.5:4b
    ```
+
+   Jangan pakai `qwen3:4b`: di Ollama sekarang tag itu model yang selalu "berpikir" dulu, jadi jawabannya baru keluar setelah puluhan detik.
+
+   Di laptop pengembangan (RTX 3050 4 GB), kata pertama jawaban keluar setelah 0,4 sampai 2,4 detik. Saat Mika baru dinyalakan, model dimuat sekitar 30 detik di latar belakang. Ollama sendiri berjalan otomatis setiap Windows menyala; kalau tidak mau, matikan di Task Manager, tab Startup.
 
 2. Opsional: salin `.env.example` menjadi `.env`, lalu isi `OPENAI_API_KEY` (cadangan kalau Ollama mati) dan/atau
    `TAVILY_API_KEY` / `BRAVE_API_KEY` (pencarian web yang lebih andal). Tanpa key, pencarian memakai `ddgs`.
@@ -99,7 +103,7 @@ pertama Mika, dihitung dari saat kamu selesai bicara.
 
 | Fitur | Contoh perintah | Catatan |
 |---|---|---|
-| Lihat layar | `lihat layarku`, `lihat layarku, error ini artinya apa`, `jelaskan jendela ini` | Butuh `ollama pull qwen2.5vl:3b`. Tangkapan layar tidak disimpan dan tidak dikirim ke cloud kecuali diizinkan di Settings. |
+| Lihat layar | `lihat layarku`, `lihat layarku, error ini artinya apa`, `jelaskan jendela ini` | Memakai model lokal yang sama (`qwen3.5:4b`). Tangkapan layar tidak disimpan dan tidak dikirim ke cloud kecuali diizinkan di Settings. |
 | Clipboard | `rangkum yang aku copy`, `terjemahkan yang aku copy ke inggris`, `jelaskan yang aku salin`, `bacakan clipboard` | Hasil terjemahan otomatis disalin ke clipboard. `bacakan` jalan tanpa AI. |
 | Briefing | `briefing pagi`, `apa agenda hari ini`, atau `selamat pagi` sebelum pukul 11.00 | Isi: tanggal, cuaca, pengingat hari ini, dua judul berita. |
 | Berita | `berita hari ini`, `berita terbaru` | Judul dari Antara, CNN Indonesia, Republika, CNBC Indonesia; tautan tampil di layar. |
@@ -365,7 +369,7 @@ Kamu bisa cerita soal kerjaan, kuliah, pacar, keluarga, teman, atau perasaanmu. 
 
 **Privasi:** curhat hanya diproses model AI lokal (Ollama) di laptop ini. Curhat tidak dikirim ke AI cloud, dan tidak ikut terbawa ketika kamu bertanya hal lain yang dijawab AI cloud. Kalau mau mengizinkan cloud, centang "Izinkan curhat diproses AI cloud" di tab Kepribadian.
 
-Kalau model lokal belum terpasang, Mika bilang sekali bahwa otak AI lokalnya belum aktif, lalu tetap mendengarkan dengan balasan yang lembut. Untuk mengaktifkan, pasang Ollama lalu jalankan `ollama pull qwen3:4b`. Ingatan percakapan menyusul di tahap berikutnya.
+Kalau model lokal belum terpasang, Mika bilang sekali bahwa otak AI lokalnya belum aktif, lalu tetap mendengarkan dengan balasan yang lembut. Untuk mengaktifkan, pasang Ollama lalu jalankan `ollama pull qwen3.5:4b`. Ingatan percakapan menyusul di tahap berikutnya.
 
 ### Dua perintah sekaligus
 

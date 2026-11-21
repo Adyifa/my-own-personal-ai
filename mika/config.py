@@ -184,7 +184,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "ollama": {
             # 127.0.0.1, not "localhost": on Windows "localhost" may try IPv6 first and add latency.
             "base_url": "http://127.0.0.1:11434",
-            "model": "qwen3:4b",
+            # Qwen3.5 4B: newest small Qwen (201 languages), tools, vision, and thinking that can be switched off.
+            # Not "qwen3:4b": in current Ollama that tag is a thinking-only model, too slow for voice.
+            "model": "qwen3.5:4b",
             "think": False,
             "keep_alive": "30m",
             "num_ctx": 4096,
@@ -221,7 +223,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "beam_size": 1,
             "cpu_threads": 0,  # 0 = up to 8 threads
             "download_root": "",
-            "llm_vram_reserve_mb": 3300,  # VRAM qwen3:4b needs with a 4k context
+            "llm_vram_reserve_mb": 3600,  # VRAM qwen3.5:4b takes with a 4k context (Whisper goes to the CPU then)
             "disable_xet": True,  # first model download over plain HTTP (Xet transfer stalled on some networks)
             "initial_prompt": "Percakapan santai dalam bahasa Indonesia dengan asisten suara bernama Mika.",
         },
@@ -246,7 +248,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "log_file": True,  # per-turn latency in data/latency.jsonl
     },
     "vision": {
-        "ollama_model": "qwen2.5vl:3b",  # local vision model (~3 GB); swaps with the text model on a 4 GB GPU
+        "ollama_model": "qwen3.5:4b",  # the chat model sees too: one model in VRAM, nothing swapped for "lihat layarku"
         "openai_model": "gpt-5-mini",
         "allow_cloud": False,  # screenshots never leave the laptop unless this is switched on
         "max_side": 1280,

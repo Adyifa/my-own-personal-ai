@@ -85,8 +85,11 @@ may suggest options, and always leaves the decision to the user. Built in steps,
       decisions for the user, no tools. Curhat goes only to local models (each provider reports whether it is local)
       unless companion.allow_cloud is on, and curhat turns are private: left out of the history of any request that may
       reach a cloud model. Follow-ups stay curhat for 45 s; commands still run. Without a local model Mika says so once
-      and keeps listening with templates. Verified with scripted models and the real app's failure path; the model's
-      actual replies are not checked yet (Ollama is not installed on the development laptop).
+      and keeps listening with templates. Verified on the target laptop with `qwen3.5:4b` (chat, tools, and vision in one
+      model): first word after 0.4 to 2.4 s, a curhat reply in 3 to 5 s, "lihat layarku" in 5 s. That test found that
+      Ollama's `qwen3:4b` is now thinking-only (reasoning read aloud, then 49 s per reply), so the connector detects such
+      models and never speaks their reasoning; it also found the "sopan" prompt conflict and a missing "are you safe?"
+      after a crisis, which Mika now asks herself.
 - [ ] C. Memory of past conversations: short local summaries (topics, feelings, open threads) recalled when the topic
       returns; people's names only after the user agrees; listable and deletable by voice; shared with other features.
 - [ ] D. Learning from feedback ("aku cuma mau didengerin" becomes a style rule), optional check-ins, a weekly

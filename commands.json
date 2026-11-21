@@ -183,7 +183,7 @@
     "warmup": true,
     "ollama": {
       "base_url": "http://127.0.0.1:11434",
-      "model": "qwen3:4b",
+      "model": "qwen3.5:4b",
       "think": false,
       "keep_alive": "30m",
       "num_ctx": 4096,
@@ -219,7 +219,7 @@
       "beam_size": 1,
       "cpu_threads": 0,
       "download_root": "",
-      "llm_vram_reserve_mb": 3300,
+      "llm_vram_reserve_mb": 3600,
       "disable_xet": true,
       "initial_prompt": "Percakapan santai dalam bahasa Indonesia dengan asisten suara bernama Mika."
     },
@@ -252,7 +252,7 @@
     "log_file": true
   },
   "vision": {
-    "ollama_model": "qwen2.5vl:3b",
+    "ollama_model": "qwen3.5:4b",
     "openai_model": "gpt-5-mini",
     "allow_cloud": false,
     "max_side": 1280

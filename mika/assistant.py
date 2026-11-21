@@ -26,6 +26,12 @@ from .skills.power import execute_power_action
 from .skills.vision import VISION_SYSTEM_PROMPT, ScreenCapture
 from .text import clean_conversational_command, contains_phrase, normalize, safe_print
 
+# For the curhat turns right after a self-harm statement.
+_AFTER_CRISIS_NOTE = (
+    "Catatan untuk giliran ini: tadi pengguna menyebut ingin menyakiti diri atau tidak ingin hidup. Tanggapi dengan hangat, "
+    "lalu tanyakan dengan lembut apakah dia aman sekarang. Jangan memberi saran cara apa pun yang berbahaya."
+)
+
 # Small talk that starts curhat mode too (the AI then listens instead of offering tools).
 _CURHAT_CHAT = {"sad", "stress"}
 
@@ -152,6 +158,8 @@ class Assistant:
         self.vision_llm = vision_llm  # set by build_agent when AI mode is on
         self.private_llm: Any = None  # local-only model chain for curhat, set by build_assistant
         self.curhat_until = 0.0  # while this lasts, follow-ups count as curhat
+        self.crisis_until = 0.0  # while this lasts, curhat turns carry the "is the user safe?" note
+        self._asked_if_safe = True  # set to False by a crisis reply; Mika then asks once
         self._told_no_private_model = False
         self.chime: Callable[[], None] = _default_chime if config.get("reminders", {}).get("chime", True) else (lambda: None)
         self.pending_action: PendingAction | None = None
@@ -195,7 +203,7 @@ class Assistant:
             reply = self.agent.run_task(VISION_SYSTEM_PROMPT, question, images=[image], llm=self.vision_llm, should_stop=self._turn_cancel.is_set)
         except LLMError as exc:
             safe_print(f"[vision] {exc}")
-            model = self.config.get("vision", {}).get("ollama_model", "qwen2.5vl:3b")
+            model = self.config.get("vision", {}).get("ollama_model", "qwen3.5:4b")
             self.speaker.say("Mika belum punya model penglihatan yang bisa dipakai. Petunjuknya Mika tampilkan di layar.")
             if self.display is not None:
                 self.display.show(self.name, f"Pasang model vision lokal:\n  ollama pull {model}\natau izinkan vision cloud di Settings.")
@@ -333,6 +341,8 @@ class Assistant:
         if session is not None:
             session.add_turn(command, reply, private=True)
         self.curhat_until = time.time() + self.curhat_seconds()  # what follows is a conversation, not commands
+        self.crisis_until = time.time() + 15 * 60  # the next curhat turns ask, gently, whether the user is safe
+        self._asked_if_safe = False
         self.keep_conversation_alive(self.curhat_seconds())
 
     def run_disk_report(self, args: dict[str, Any]) -> None:
@@ -634,11 +644,20 @@ class Assistant:
         if self.agent is None or self.private_llm is None:
             return self.offline_curhat(listening, command)
         try:
-            reply = self.agent.respond(text, should_stop=self._turn_cancel.is_set, mode="curhat", llm=self.private_llm)
+            note = _AFTER_CRISIS_NOTE if time.time() <= self.crisis_until else ""
+            reply = self.agent.respond(
+                text, should_stop=self._turn_cancel.is_set, mode="curhat", llm=self.private_llm, note=note
+            )
         except LLMError as exc:
             safe_print(f"[llm] curhat: {exc}")
             return self.offline_curhat(listening, command)
         self.last_reply = reply
+        if note and not self._asked_if_safe:
+            # A small model does not reliably ask this, and it matters too much to leave to it: once per crisis.
+            self._asked_if_safe = True
+            spoken = " ".join(getattr(reply, "spoken", []) or []).lower()
+            if "aman" not in spoken and not self._turn_cancel.is_set():
+                self.speaker.say("Boleh aku tanya, kamu aman sekarang?")
         wait = getattr(self.speaker, "wait", None)
         if callable(wait):
             wait()

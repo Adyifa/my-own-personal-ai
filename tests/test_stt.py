@@ -128,6 +128,7 @@ def test_missing_cuda_libraries_are_caught_at_load_time(config):
         devices.append(kwargs["device"])
         return CudaLibsMissingModel([]) if kwargs["device"] == "cuda" else cpu_model
 
+    config["stt"]["whisper"]["llm_vram_reserve_mb"] = 3300  # pinned: this test is about the CUDA failure, not the reserve
     stt = WhisperSTT(config, model_factory=factory, gpu_probe=lambda: 3961, llm_probe=lambda: False)
     stt.model_name = "tiny"  # small enough that "auto" picks the GPU next to the LLM reserve
     assert stt.transcribe(utterance()).text == "halo"

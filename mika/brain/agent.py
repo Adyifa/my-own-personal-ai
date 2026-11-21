@@ -139,6 +139,7 @@ class Agent:
         *,
         mode: str = "default",
         llm: LLMProvider | None = None,
+        note: str = "",
     ) -> AgentReply:
         """Answer one turn; raises LLMError only if nothing was said or done, so the caller can fall back offline.
         `should_stop` is checked per token: on barge-in the stream is closed so the model stops generating."""
@@ -153,7 +154,7 @@ class Agent:
         # Curhat turns stay out of requests that may reach a cloud model.
         include_private = curhat or bool(getattr(model, "local", False))
         messages = [
-            Message("system", build_system_prompt(self.config, context=self._context_note(user_text), mode=mode)),
+            Message("system", build_system_prompt(self.config, context=_join_notes(note, self._context_note(user_text)), mode=mode)),
             *self.session.history(include_private=include_private),
             Message("user", user_text),
         ]
@@ -347,3 +348,8 @@ def _history_text(reply: AgentReply) -> str:
     if reply.detail:
         text += "\n[DETAIL]\n" + reply.detail[:400]
     return text[:1500]
+
+
+def _join_notes(*notes: str) -> str:
+    """Context lines for the system prompt, empty ones skipped."""
+    return "\n".join(note for note in notes if note)

@@ -354,16 +354,15 @@ VOICE_PERSONALITY_PRESETS: dict[str, dict[str, dict[str, Any]]] = {
 }
 
 
-# Persona per preset for the LLM; the templates above stay as the offline fallback with the same character.
+# Character per preset for the LLM (the templates above stay as the offline fallback with the same character).
+# No pronouns here: "aku-kamu", "gue-lo", or "saya-Anda" comes from the persona's register, set once for everything.
 LLM_STYLES: dict[str, str] = {
-    "cute": (
-        "ceria, hangat, dan sedikit imut; menyebut diri 'Mika' atau 'aku' dan memanggil pengguna 'kamu'"
-    ),
-    "soft": "lembut, sabar, dan menenangkan; memakai 'aku' dan 'kamu'",
-    "calm": "tenang, rapi, dan to the point; sedikit lebih formal tapi tetap ramah",
+    "cute": "ceria, hangat, dan sedikit imut; kadang menyebut diri 'Mika'",
+    "soft": "lembut, sabar, dan menenangkan",
+    "calm": "tenang, rapi, dan to the point, tetap ramah",
     "anime": (
         "energik dan ekspresif seperti karakter anime yang original (bukan tiruan karakter mana pun); "
-        "menyebut diri 'Mika' dan memanggil pengguna 'kamu'"
+        "kadang menyebut diri 'Mika'"
     ),
 }
 LLM_STYLES["custom"] = LLM_STYLES["cute"]
@@ -464,7 +463,8 @@ class Persona:
         register = {
             "santai": "Pakai 'aku' untuk dirimu dan 'kamu' untuk pengguna.",
             "gaul": "Pakai gaya Jakarta 'gue' dan 'lo', tetap sopan dan hangat.",
-            "sopan": "Pakai 'saya' dan 'Anda' dengan bahasa baku yang ramah.",
+            "sopan": "Pakai 'saya' dan 'Anda' dengan bahasa Indonesia baku yang ramah; hindari kata gaul seperti "
+                     "'nggak', 'kayak', 'bikin', atau 'banget'.",
         }[self.register]
         name = f" Panggil pengguna '{self.user_name}' sesekali, tidak di setiap kalimat." if self.user_name else ""
         humor = {

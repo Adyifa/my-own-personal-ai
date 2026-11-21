@@ -102,7 +102,7 @@ flowchart LR
 ### Key engineering decisions
 
 1. **Rules first, AI second.** Known commands like "buka youtube" stay instant and work offline, because even a small local model adds a noticeable delay just to pick a tool. The router has no side effects, so its accuracy can be tested without a model.
-2. **Local-first AI with automatic fallback.** Qwen3 4B runs in Ollama inside 4 GB of VRAM: free, private, and offline. An OpenAI-compatible API is the backup. A failed provider is skipped for 2 minutes instead of costing a timeout on every request, and the switch only happens before the first word is spoken.
+2. **Local-first AI with automatic fallback.** Qwen3.5 4B runs in Ollama on a 4 GB GPU: free, private, and offline, and the same model also reads the screen. An OpenAI-compatible API is the backup. A failed provider is skipped for 2 minutes instead of costing a timeout on every request, and the switch only happens before the first word is spoken.
 3. **Speak while thinking.** Each sentence goes to text-to-speech as soon as it is complete, and the next one is synthesized while the current one plays. Spoken answers stay at 1 to 3 sentences; long details and sources appear on screen. Slow tools start with a short filler line, and simple actions skip a second AI call.
 4. **Safety in code, not only in the prompt.** Risky actions (shutdown, restart) only create a pending action that runs after the user says "iya". The AI has no tool to delete files or run commands, cannot open program files or non-web links, and treats web pages as data: text that tries to inject instructions is cleaned before the model sees it, and only public websites are fetched. Freeing disk space follows the same rule: the AI can only measure the disk. Emptying caches is a fixed voice command limited to a hard-coded list of cache folders; it states the size and waits for "iya", removes links without following them, and asks for admin rights through the normal Windows UAC prompt only for the folders that need it. Mika never runs as admin.
 5. **Small memory budget.** Conversation history keeps answers, not whole web pages, so it fits the 4k-token context of a small model.
@@ -130,6 +130,7 @@ Problems found while testing on the real laptop, and fixed:
 - Only 3 of 24 casual or regional ways of asking for a YouTube video worked correctly. Without an AI model, 14 were not understood at all ("gue mau nonton smitty", Sundanese "carikeun…", Javanese "golekno… nang youtube"), 3 searched Google instead ("yutub", "you tube"), and 4 searched a garbled query ("smitty nang") or opened only the YouTube home page. A cleanup step now maps slang and regional verbs, subject-plus-"want" phrases, particles, and site-name spellings to the standard command before the rules run, keeping words that are content ("wayang golek", "ingatkan aku telepon kak"). All 24 now open YouTube in under 5 ms with no model.
 - A before/after comparison of 236 everyday commands, run before committing that change, caught 5 regressions in the first version ("buka youtube aja" searched YouTube for "aja"), which were fixed. The same run found older problems: the Start Menu scan had picked up a shortcut named just "Uninstall" (an emulator's uninstaller) that a sentence containing "buka … uninstall" could launch, and a shortcut named "Website" that "buka website detik.com" opened instead. Uninstallers and generic entries are now left out of the catalog. Spoken confirmations also only accepted single words. Now "iya mika" confirms, "gak jadi deh" cancels, and an unclear "ya udah" asks again.
 - A 599-utterance evaluation ([evals/routing_cases.txt](evals/routing_cases.txt)) found 48 routing mistakes. The most serious: "jangan matikan laptop" and "cara matikan laptop" asked to shut down, "matikan laptop 30 menit lagi" would have shut down right after "iya", and offline Mika answered "aku pengen mati aja" with "cari itu di Google". Self-harm statements now get a fixed, careful reply with support numbers (also offline, and it cancels any pending confirmation), negated commands are acknowledged and never executed, and scheduled power commands are explained instead of run. 598 of 599 now route as intended, and the safety categories must pass 100% in the test suite.
+- Testing stage 6B with a real local model showed that Ollama's `qwen3:4b` tag is now a thinking-only model. It ignores `think: false`, so Mika read its English reasoning aloud ("Okay, the user is feeling..."), and once the reasoning was hidden, a two-sentence curhat reply took 49 seconds. The Ollama connector now asks Ollama which thinking modes a model supports and never speaks the reasoning, and Mika switched to `qwen3.5:4b`: the newest small Qwen (201 languages), with tools and vision in one model, first word after 0.4 to 2.4 s on the target laptop. The real model also exposed a prompt conflict (the base prompt asked for casual Indonesian, so the "sopan" style was ignored) and that it does not reliably ask "are you safe?" after a crisis, so Mika now adds that question itself.
 
 ### Code tour
 
@@ -174,14 +175,13 @@ Whisper `tiny` is fast but too inaccurate for Indonesian, so `small` is the reco
 
 ### Tech stack
 
-Python 3.11, Ollama (Qwen3 4B, Qwen2.5-VL 3B), OpenAI-compatible API, faster-whisper (CTranslate2), WebRTC VAD, httpx, Tavily / Brave Search / ddgs, trafilatura, RSS, Open-Meteo, Edge TTS, SpeechRecognition, PyAudio, Pillow, pyperclip, pycaw, psutil, pystray, Tkinter, PyInstaller, pytest.
+Python 3.11, Ollama (Qwen3.5 4B for chat, tools, and vision), OpenAI-compatible API, faster-whisper (CTranslate2), WebRTC VAD, httpx, Tavily / Brave Search / ddgs, trafilatura, RSS, Open-Meteo, Edge TTS, SpeechRecognition, PyAudio, Pillow, pyperclip, pycaw, psutil, pystray, Tkinter, PyInstaller, pytest.
 
 ### Run it locally
 
 ```powershell
 python -m pip install -r requirements.txt
-ollama pull qwen3:4b
-ollama pull qwen2.5vl:3b            # optional, for "lihat layarku"
+ollama pull qwen3.5:4b              # one local model for chat, tools, and "lihat layarku"
 python assistant.py --text --mute   # type instead of talk, no sound
 python mic_test.py                  # check the microphone and speech recognition
 python tray_assistant.py            # full voice assistant in the system tray
@@ -315,7 +315,7 @@ flowchart LR
 ### Keputusan teknis utama
 
 1. **Aturan dulu, AI kemudian.** Perintah yang sudah dikenal seperti "buka youtube" tetap instan dan jalan offline, karena model lokal yang kecil pun menambah jeda yang terasa hanya untuk memilih tool. Router tidak punya efek samping, jadi akurasinya bisa diuji tanpa model.
-2. **AI lokal dengan fallback otomatis.** Qwen3 4B berjalan di Ollama dalam VRAM 4 GB: gratis, privat, dan offline. API yang kompatibel dengan OpenAI menjadi cadangan. Provider yang gagal dilewati selama 2 menit supaya tidak menambah waktu tunggu di setiap permintaan, dan perpindahan hanya terjadi sebelum kata pertama diucapkan.
+2. **AI lokal dengan fallback otomatis.** Qwen3.5 4B berjalan di Ollama pada GPU 4 GB: gratis, privat, dan offline, dan model yang sama juga membaca layar. API yang kompatibel dengan OpenAI menjadi cadangan. Provider yang gagal dilewati selama 2 menit supaya tidak menambah waktu tunggu di setiap permintaan, dan perpindahan hanya terjadi sebelum kata pertama diucapkan.
 3. **Bicara sambil berpikir.** Setiap kalimat langsung diubah jadi suara begitu selesai, dan kalimat berikutnya disiapkan selagi kalimat sekarang diputar. Jawaban suara dibatasi 1 sampai 3 kalimat; rincian panjang dan sumber tampil di layar. Tool yang lambat diawali kalimat pengisi singkat, dan aksi sederhana tidak perlu panggilan AI kedua.
 4. **Keamanan di kode, bukan hanya di prompt.** Aksi berisiko (mematikan, restart) hanya membuat aksi tertunda yang dijalankan setelah pengguna bilang "iya". AI tidak punya tool untuk menghapus file atau menjalankan perintah, tidak bisa membuka file program atau link non-web, dan memperlakukan halaman web sebagai data: teks yang mencoba menyisipkan instruksi dibersihkan sebelum dibaca model, dan hanya situs publik yang diambil. Mengosongkan ruang disk mengikuti aturan yang sama: AI hanya bisa mengukur disk. Mengosongkan cache adalah perintah suara tetap yang terbatas pada daftar folder cache di kode; Mika menyebut ukurannya dan menunggu "iya", menghapus link tanpa mengikutinya, dan meminta hak admin lewat jendela UAC Windows hanya untuk folder yang membutuhkannya. Mika tidak pernah berjalan sebagai admin.
 5. **Memori yang hemat.** Riwayat percakapan menyimpan jawaban, bukan isi halaman web, supaya muat di konteks 4k token milik model kecil.
@@ -343,6 +343,7 @@ Masalah yang ditemukan saat diuji di laptop sungguhan, dan sudah diperbaiki:
 - Hanya 3 dari 24 cara santai atau daerah untuk minta video YouTube yang berhasil dengan benar. Tanpa model AI, 14 sama sekali tidak dipahami ("gue mau nonton smitty", Sunda "carikeun…", Jawa "golekno… nang youtube"), 3 malah mencari di Google ("yutub", "you tube"), dan 4 mencari kata yang rusak ("smitty nang") atau hanya membuka beranda YouTube. Sekarang ada tahap perapian yang mengubah kata kerja slang dan daerah, frasa "gue mau", partikel, dan ejaan nama situs menjadi perintah standar sebelum aturan dijalankan, tanpa membuang kata yang merupakan isi ("wayang golek", "ingatkan aku telepon kak"). Ke-24 kalimat itu sekarang membuka YouTube dalam waktu kurang dari 5 ms tanpa model.
 - Perbandingan sebelum/sesudah pada 236 perintah sehari-hari, dijalankan sebelum perubahan itu di-commit, menemukan 5 regresi di versi pertamanya ("buka youtube aja" malah mencari "aja" di YouTube), dan semuanya sudah diperbaiki. Uji yang sama menemukan masalah lama: scan Start Menu ikut mengambil shortcut bernama "Uninstall" saja (uninstaller sebuah emulator) yang bisa terbuka oleh kalimat berisi "buka … uninstall", dan shortcut bernama "Website" yang malah terbuka saat bilang "buka website detik.com". Sekarang uninstaller dan entri generik tidak dimasukkan ke katalog. Konfirmasi suara juga dulu hanya menerima satu kata. Sekarang "iya mika" melanjutkan, "gak jadi deh" membatalkan, dan jawaban ragu "ya udah" membuat Mika bertanya lagi.
 - Evaluasi 599 kalimat ([evals/routing_cases.txt](evals/routing_cases.txt)) menemukan 48 kesalahan routing. Yang paling serius: "jangan matikan laptop" dan "cara matikan laptop" malah meminta shutdown, "matikan laptop 30 menit lagi" akan langsung mematikan laptop setelah "iya", dan saat offline Mika menjawab "aku pengen mati aja" dengan "cari itu di Google". Sekarang pernyataan menyakiti diri mendapat balasan tetap yang hati-hati beserta nomor layanan (juga saat offline, dan membatalkan konfirmasi yang sedang menunggu), perintah yang dinegasikan hanya dijawab "Oke" tanpa dijalankan, dan perintah daya terjadwal dijelaskan, bukan dijalankan. 598 dari 599 kalimat sekarang masuk ke tujuan yang benar, dan kategori keamanan wajib lulus 100% di test suite.
+- Uji tahap 6B dengan model lokal sungguhan menunjukkan bahwa tag `qwen3:4b` di Ollama sekarang adalah model yang selalu berpikir dulu. Model ini mengabaikan `think: false`, jadi Mika membacakan penalarannya yang berbahasa Inggris ("Okay, the user is feeling..."), dan setelah penalarannya disembunyikan, balasan curhat dua kalimat butuh 49 detik. Sekarang penghubung Ollama menanyakan mode berpikir yang didukung model dan tidak pernah membacakan penalarannya, dan Mika pindah ke `qwen3.5:4b`: Qwen kecil terbaru (201 bahasa), dengan tool dan vision dalam satu model, kata pertama keluar setelah 0,4 sampai 2,4 detik di laptop target. Model sungguhan juga memperlihatkan konflik di prompt (prompt dasar meminta bahasa santai, sehingga gaya "sopan" diabaikan) dan bahwa model tidak selalu menanyakan "kamu aman?" setelah krisis, jadi sekarang Mika menanyakannya sendiri.
 
 ### Tur kode
 
@@ -387,14 +388,13 @@ Whisper `tiny` cepat tapi terlalu tidak akurat untuk bahasa Indonesia, jadi mode
 
 ### Teknologi
 
-Python 3.11, Ollama (Qwen3 4B, Qwen2.5-VL 3B), API kompatibel OpenAI, faster-whisper (CTranslate2), WebRTC VAD, httpx, Tavily / Brave Search / ddgs, trafilatura, RSS, Open-Meteo, Edge TTS, SpeechRecognition, PyAudio, Pillow, pyperclip, pycaw, psutil, pystray, Tkinter, PyInstaller, pytest.
+Python 3.11, Ollama (Qwen3.5 4B untuk ngobrol, tool, dan vision), API kompatibel OpenAI, faster-whisper (CTranslate2), WebRTC VAD, httpx, Tavily / Brave Search / ddgs, trafilatura, RSS, Open-Meteo, Edge TTS, SpeechRecognition, PyAudio, Pillow, pyperclip, pycaw, psutil, pystray, Tkinter, PyInstaller, pytest.
 
 ### Menjalankan di laptop sendiri
 
 ```powershell
 python -m pip install -r requirements.txt
-ollama pull qwen3:4b
-ollama pull qwen2.5vl:3b            # opsional, untuk "lihat layarku"
+ollama pull qwen3.5:4b              # satu model lokal untuk ngobrol, tool, dan "lihat layarku"
 python assistant.py --text --mute   # mengetik, bukan bicara, tanpa suara
 python mic_test.py                  # mengecek mikrofon dan pengenalan suara
 python tray_assistant.py            # asisten suara lengkap di system tray

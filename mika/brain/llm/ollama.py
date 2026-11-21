@@ -8,11 +8,12 @@ from typing import Any, Iterator
 
 import httpx
 
+from ...text import safe_print
 from .base import LLMError, Message, ProviderUnavailable, StreamEvent, ToolCall, is_local_url, parse_arguments
 
 
 class OllamaProvider:
-    """Free, private, offline LLM on the laptop GPU (default qwen3:4b, fits in 4 GB VRAM)."""
+    """Free, private, offline LLM on the laptop GPU (default qwen3.5:4b, runs on a 4 GB GPU)."""
 
     name = "ollama"
 
@@ -22,7 +23,7 @@ class OllamaProvider:
 
     def __init__(self, config: dict[str, Any], *, client: httpx.Client | None = None):
         self.base_url = str(config.get("base_url", "http://127.0.0.1:11434")).rstrip("/")
-        self.model = str(config.get("model", "qwen3:4b"))
+        self.model = str(config.get("model", "qwen3.5:4b"))
         self.think = config.get("think", False)  # False: skip Qwen3's hidden reasoning, which delays the first word
         self.keep_alive = config.get("keep_alive", "30m")  # keep the model in VRAM between turns (no reload)
         self.num_ctx = config.get("num_ctx", 4096)  # 4k context keeps the KV cache inside 4 GB VRAM
@@ -32,6 +33,8 @@ class OllamaProvider:
         )
         self._client = client
         self._send_think = self.think is not None
+        self._think_checked = False
+        self.thinking_budget = int(config.get("thinking_budget_tokens", 1536))  # only used by thinking-only models
 
     @property
     def client(self) -> httpx.Client:
@@ -75,8 +78,10 @@ class OllamaProvider:
         }
         if temperature is not None:
             payload["options"]["temperature"] = temperature
+        self._check_thinking_only()
         if max_tokens:
-            payload["options"]["num_predict"] = max_tokens
+            # A thinking-only model spends its tokens on reasoning first; without extra room it never reaches the answer.
+            payload["options"]["num_predict"] = max_tokens + (self.thinking_budget if self.think is True else 0)
         if tools:
             payload["tools"] = tools
         if self._send_think:
@@ -88,6 +93,25 @@ class OllamaProvider:
             self._send_think = False
             payload.pop("think", None)
             yield from self._stream(payload)
+
+    def _check_thinking_only(self) -> None:
+        """Some models can only think (Ollama's qwen3:4b is now Qwen3-4B-Thinking-2507). For those, `think: false`
+        is ignored and the reasoning arrives as the answer, so Mika would read it aloud. Asking for `think: true`
+        moves it to a separate field that is never spoken: correct, but slow, so the log suggests an instruct model."""
+        if self._think_checked or self.think is not False:
+            return
+        self._think_checked = True
+        try:
+            response = self.client.post(f"{self.base_url}/api/show", json={"model": self.model}, timeout=self.timeout)
+            values = (response.json().get("thinking") or {}).get("values") if response.status_code < 400 else None
+        except (httpx.HTTPError, ValueError):
+            return  # cannot tell: keep think=false
+        if isinstance(values, list) and values and False not in values:
+            self.think = True
+            safe_print(
+                f"[llm] {self.model} selalu berpikir dulu sebelum menjawab, jadi jawabannya lambat. "
+                "Untuk suara, pakai model yang bisa menjawab tanpa berpikir dulu: ollama pull qwen3.5:4b"
+            )
 
     def _stream(self, payload: dict[str, Any]) -> Iterator[StreamEvent]:
         """Parse Ollama's newline-delimited JSON stream into StreamEvents."""
